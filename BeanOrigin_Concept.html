@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BeanOrigin — Concept Maturation Document</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      font-size: 11pt;
+      line-height: 1.7;
+      color: #1a1a2e;
+      background: #fff;
+      padding: 0;
+    }
+
+    .page {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 48px 56px;
+    }
+
+    /* COVER */
+    .cover {
+      text-align: center;
+      padding: 60px 0 50px;
+      border-bottom: 3px solid #4a3728;
+      margin-bottom: 40px;
+    }
+    .cover .bean-icon { font-size: 64px; margin-bottom: 16px; display: block; }
+    .cover h1 {
+      font-size: 28pt;
+      font-weight: 700;
+      color: #2d1b0e;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+    .cover .subtitle {
+      font-size: 12pt;
+      color: #6b4f3a;
+      font-weight: 400;
+      font-style: italic;
+      margin-bottom: 24px;
+    }
+    .cover .meta {
+      display: inline-flex;
+      gap: 20px;
+      background: #fdf6f0;
+      border: 1px solid #e8d5c4;
+      border-radius: 8px;
+      padding: 12px 24px;
+    }
+    .cover .meta span { font-size: 9.5pt; color: #6b4f3a; }
+    .cover .meta strong { color: #2d1b0e; }
+
+    /* HEADINGS */
+    h2 {
+      font-size: 16pt;
+      font-weight: 700;
+      color: #2d1b0e;
+      margin: 36px 0 14px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #c8956c;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    h2 .section-num {
+      display: inline-block;
+      background: #4a3728;
+      color: #fff;
+      font-size: 10pt;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-right: 4px;
+    }
+    h3 {
+      font-size: 12pt;
+      font-weight: 600;
+      color: #3d2b1a;
+      margin: 22px 0 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    h4 {
+      font-size: 11pt;
+      font-weight: 600;
+      color: #5a3e2b;
+      margin: 14px 0 6px;
+    }
+
+    /* PARAGRAPHS & LISTS */
+    p { margin-bottom: 10px; color: #2c2c2c; }
+    ul, ol { padding-left: 22px; margin-bottom: 10px; }
+    li { margin-bottom: 4px; color: #2c2c2c; }
+    li ul { margin-top: 4px; margin-bottom: 0; }
+
+    strong { color: #1a1a1a; font-weight: 600; }
+    em { color: #6b4f3a; }
+    a { color: #c8956c; text-decoration: none; }
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      background: #f5ede6;
+      border: 1px solid #e8d5c4;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 9.5pt;
+      color: #7c3d0f;
+    }
+
+    /* BLOCKQUOTE */
+    blockquote {
+      border-left: 4px solid #c8956c;
+      background: #fdf6f0;
+      padding: 10px 16px;
+      margin: 12px 0;
+      border-radius: 0 6px 6px 0;
+      font-style: italic;
+      color: #6b4f3a;
+    }
+
+    /* CODE BLOCK */
+    pre {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 8.5pt;
+      padding: 16px 20px;
+      border-radius: 8px;
+      margin: 12px 0;
+      overflow-x: auto;
+      line-height: 1.5;
+      border-left: 4px solid #c8956c;
+    }
+    pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      color: inherit;
+      font-size: inherit;
+    }
+
+    /* TABLES */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      font-size: 10.5pt;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    thead tr {
+      background: #4a3728;
+      color: #fff;
+    }
+    thead th {
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 10pt;
+    }
+    tbody tr:nth-child(even) { background: #fdf6f0; }
+    tbody tr:nth-child(odd) { background: #fff; }
+    tbody td {
+      padding: 9px 14px;
+      border-bottom: 1px solid #f0e4d8;
+      vertical-align: top;
+    }
+
+    /* CHECKLIST */
+    .checklist { list-style: none; padding-left: 0; }
+    .checklist li {
+      padding: 5px 10px 5px 32px;
+      position: relative;
+      border-bottom: 1px solid #f0e4d8;
+    }
+    .checklist li::before {
+      content: "☐";
+      position: absolute;
+      left: 8px;
+      color: #c8956c;
+      font-size: 13pt;
+      line-height: 1;
+    }
+    .checklist li.done::before { content: "✅"; font-size: 11pt; }
+
+    /* STATUS BADGE */
+    .status-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #4a3728, #7c5c3e);
+      color: #fff;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 10.5pt;
+      font-weight: 600;
+      margin-top: 14px;
+    }
+
+    /* ARCHITECTURE BOX */
+    .arch-box {
+      background: #1e1e2e;
+      color: #a6e3a1;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 8pt;
+      padding: 20px;
+      border-radius: 10px;
+      margin: 14px 0;
+      white-space: pre;
+      line-height: 1.4;
+      border: 2px solid #4a3728;
+    }
+
+    /* HR */
+    hr { border: none; border-top: 1px solid #e8d5c4; margin: 28px 0; }
+
+    /* SECTION DIVIDER */
+    .section-divider {
+      height: 4px;
+      background: linear-gradient(90deg, #4a3728, #c8956c, #fdf6f0);
+      border-radius: 2px;
+      margin: 32px 0;
+    }
+
+    /* FOOTER */
+    .footer {
+      margin-top: 48px;
+      padding-top: 16px;
+      border-top: 2px solid #4a3728;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 9pt;
+      color: #9b7a5e;
+    }
+
+    /* PRINT */
+    @media print {
+      body { background: #fff; }
+      .page { padding: 32px 40px; }
+      pre, .arch-box { page-break-inside: avoid; }
+      table { page-break-inside: avoid; }
+      h2 { page-break-after: avoid; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- COVER -->
+  <div class="cover">
+    <span class="bean-icon">🫘</span>
+    <h1>BeanOrigin</h1>
+    <p class="subtitle">Platform Rantai Pasok &amp; Verifikasi Ekspor Kopi Nusantara<br>Berbasis LBS, AI Vision, dan Blockchain</p>
+    <div class="meta">
+      <span><strong>Dokumen:</strong> Concept Maturation Document</span>
+      <span><strong>Tanggal:</strong> 19 Oktober 2026</span>
+      <span><strong>Platform:</strong> Flutter Mobile App</span>
+    </div>
+  </div>
+
+  <!-- SECTION 1 -->
+  <h2><span class="section-num">1</span> Ringkasan Visi</h2>
+  <p><strong>BeanOrigin</strong> adalah aplikasi mobile Flutter multi-role yang menghubungkan ekosistem supply chain kopi Indonesia — dari perkebunan petani lokal hingga bursa komoditas internasional — dengan memanfaatkan teknologi modern: AI Computer Vision, LLM advisory, blockchain hash-chain, LBS, dan sensor perangkat.</p>
+
+  <div class="section-divider"></div>
+
+  <!-- SECTION 2 -->
+  <h2><span class="section-num">2</span> Peta Peran Pengguna (User Roles)</h2>
+  <table>
+    <thead><tr><th>Role</th><th>Tugas Utama</th></tr></thead>
+    <tbody>
+      <tr><td>🌱 <strong>Petani (Farmer)</strong></td><td>Mendaftarkan batch panen, input data kebun, geo-tag lokasi</td></tr>
+      <tr><td>🔬 <strong>Q-Grader / Kurator Mutu</strong></td><td>Scan AI defect biji kopi, isi form cupping score, verifikasi batch</td></tr>
+      <tr><td>📦 <strong>Eksportir</strong></td><td>Monitor logistik kontainer, sinkronisasi jam lelang London, transaksi</td></tr>
+      <tr><td>👤 <strong>Admin</strong></td><td>Manajemen user, validasi akhir batch untuk ekspor</td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-divider"></div>
+
+  <!-- SECTION 3 -->
+  <h2><span class="section-num">3</span> Pemetaan Kriteria Tugas Akhir → Fitur Aplikasi</h2>
+
+  <h3>✅ 3.1 Konversi Waktu</h3>
+  <ul>
+    <li><strong>Zona:</strong> WIB (UTC+7), WITA (UTC+8), WIT (UTC+9), London (UTC+0/+1 BST)</li>
+    <li><strong>Konteks:</strong> Widget "Auction Clock" di halaman Home — menampilkan countdown dan jam saat ini di 4 zona waktu sekaligus</li>
+    <li><strong>Trigger:</strong> Jam pembukaan ICE Futures Europe pukul 10:00 London time → dikonversi realtime ke WIB/WITA/WIT</li>
+  </ul>
+
+  <h3>✅ 3.2 Konversi Mata Uang</h3>
+  <ul>
+    <li><strong>Mata uang:</strong> IDR 🇮🇩, USD 🇺🇸, GBP 🇬🇧, EUR 🇪🇺</li>
+    <li><strong>API:</strong> Frankfurter API — free, tanpa API key, berbasis data European Central Bank. IDR <strong>terkonfirmasi tersedia</strong>.</li>
+    <li><strong>Konteks:</strong> Halaman "Market Price" — harga kopi green bean per kg dalam 4 mata uang, update realtime</li>
+  </ul>
+
+  <h3>✅ 3.3 LBS (Location-Based Service)</h3>
+  <ul>
+    <li><strong>Fitur 1:</strong> Geo-tag perkebunan asal (Farmer input koordinat GPS saat daftar batch)</li>
+    <li><strong>Fitur 2:</strong> Peta rute kontainer dari gudang → pelabuhan ekspor terdekat</li>
+    <li><strong>Library:</strong> <code>flutter_map</code> (OpenStreetMap) + <code>geolocator</code> — gratis, tanpa API key</li>
+    <li><strong>Data:</strong> Titik perkebunan ditampilkan di peta dengan pin berwarna sesuai status batch (pending/verified/exported)</li>
+  </ul>
+
+  <h3>✅ 3.4 Sensor</h3>
+  <h4>Sensor 1 — Accelerometer (Cargo Shock Monitor)</h4>
+  <ul>
+    <li>Membaca data accelerometer saat transit pengiriman</li>
+    <li>Jika guncangan melebihi threshold (misal &gt;2G), sistem mencatat "shock event" ke log batch</li>
+    <li><strong>Fitur Bonus:</strong> "Shake to Random Inspect" — kocok HP untuk memilih sampel karung secara acak</li>
+  </ul>
+  <h4>Sensor 2 — Gyroscope (Slope Meter)</h4>
+  <ul>
+    <li>Mengukur sudut kemiringan lahan kebun / rak penjemuran</li>
+    <li>Ditampilkan sebagai clinometer visual (bubble level)</li>
+    <li>Data kemiringan tersimpan sebagai metadata batch kebun</li>
+  </ul>
+
+  <h3>✅ 3.5 AI Vision — Green Coffee Defect Classifier</h3>
+  <ul>
+    <li><strong>Model:</strong> MobileNetV2 / YOLOv8-Nano (TFLite, on-device)</li>
+    <li><strong>Input:</strong> Foto biji kopi dari kamera HP</li>
+    <li><strong>Output:</strong> Klasifikasi cacat — Normal, Black Bean, Sour/Moldy, Broken, dll.</li>
+    <li><strong>Integrasi:</strong> Q-Grader buka kamera → scan → hasil defect % langsung masuk form inspeksi batch</li>
+    <li><strong>Catatan:</strong> Transfer learning dari model pre-trained + label simulasi untuk demo</li>
+  </ul>
+
+  <h3>✅ 3.6 LLM — Export &amp; Roasting Advisory</h3>
+  <ul>
+    <li><strong>Model:</strong> Google Gemini 1.5 Flash (via Gemini API)</li>
+    <li><strong>Input:</strong> Data batch (elevasi mdpl, varietas, kadar air, proses pascapanen, cupping score)</li>
+    <li><strong>Output:</strong>
+      <ul>
+        <li>Rekomendasi roasting profile (light/medium/dark, suhu, durasi)</li>
+        <li>Cupping notes deskripsi rasa (floral, fruity, dll.)</li>
+        <li>Checklist kepatuhan regulasi ekspor (SNI, SCAA standard)</li>
+      </ul>
+    </li>
+  </ul>
+
+  <h3>✅ 3.7 Blockchain — Immutable Provenance Ledger</h3>
+  <ul>
+    <li><strong>Mekanisme:</strong> SHA-256 hash-chain lokal (bukan blockchain publik)</li>
+    <li><strong>Struktur Blok:</strong></li>
+  </ul>
+  <pre><code>{
+  "index": 1,
+  "timestamp": "2026-10-19T10:00:00Z",
+  "batch_data": {
+    "variety": "Arabika Gayo",
+    "elevation_masl": 1600,
+    "origin": "Aceh Tengah",
+    "process": "Washed",
+    "cupping_score": 85.5
+  },
+  "previous_hash": "0000abc...",
+  "hash": "sha256(index+timestamp+data+previous_hash)"
+}</code></pre>
+  <ul>
+    <li><strong>QR Code:</strong> Pembeli scan → aplikasi validasi hash chain → tampilkan sertifikat keaslian</li>
+    <li><strong>Storage:</strong> Blok disimpan di Supabase (online) + Hive (offline cache)</li>
+  </ul>
+
+  <h3>✅ 3.8 Mini Game — BeanSorter Blitz</h3>
+  <ul>
+    <li><strong>Gameplay:</strong> Biji kopi jatuh dari atas layar, user tap biji cacat ke tempat sampah, biji normal ke wadah ekspor</li>
+    <li><strong>Kontrol:</strong> Tap layar + opsional kontrol kemiringan gyroscope untuk gerak wadah</li>
+    <li><strong>Level:</strong> Makin cepat conveyor, makin sulit</li>
+    <li><strong>Edukasi:</strong> Setelah game, tampilkan fakta tentang defect yang baru disortir</li>
+  </ul>
+
+  <h3>✅ 3.9 Pencarian &amp; Filter Batch</h3>
+  <ul>
+    <li>Filter: Varietas, Daerah Asal, Cupping Score (range), Status (available/sold), Rentang harga</li>
+    <li>Search bar dengan debounce</li>
+    <li>Tampilan grid card batch kopi</li>
+  </ul>
+
+  <h3>✅ 3.10 Notifikasi</h3>
+  <ul>
+    <li>Alarm jam buka sesi lelang London (Local Notification terjadwal)</li>
+    <li>Alert perubahan harga kurs &gt;1% (triggered setelah fetch currency)</li>
+    <li>Status batch berubah (pending → verified → ready to export)</li>
+    <li><strong>Library:</strong> <code>flutter_local_notifications</code></li>
+  </ul>
+
+  <h3>✅ 3.11 Autentikasi &amp; Keamanan</h3>
+  <ul>
+    <li><strong>Login:</strong> Email + Password (hash SHA-256 atau bcrypt di client sebelum kirim ke server)</li>
+    <li><strong>Session:</strong> JWT disimpan di <code>flutter_secure_storage</code></li>
+    <li><strong>Biometric:</strong> Fingerprint / Face ID via <code>local_auth</code></li>
+    <li>✅ <strong>Tanpa Firebase Auth</strong></li>
+  </ul>
+
+  <h3>✅ 3.12 Database</h3>
+  <ul>
+    <li><strong>Lokal:</strong> Hive (NoSQL) — cache form inspeksi offline, blok blockchain lokal</li>
+    <li><strong>Online:</strong> Supabase (PostgreSQL) — user, batch, blockchain ledger, market data</li>
+  </ul>
+
+  <h3>✅ 3.13 Bottom Navigation</h3>
+  <ol>
+    <li>🏠 <strong>Home / Batch Explorer</strong> — dashboard + list batch + filter</li>
+    <li>👤 <strong>Profil</strong> — foto, data user, statistik batch</li>
+    <li>💬 <strong>Saran &amp; Kesan</strong> — form feedback mata kuliah PaM</li>
+    <li>🚪 <strong>Logout</strong> — clear session + konfirmasi</li>
+  </ol>
+
+  <h3>✅ 3.14 Plantation Weather Monitor <em>(Open-Meteo API — Fitur Bonus)</em></h3>
+  <ul>
+    <li><strong>API:</strong> Open-Meteo — free, tanpa API key, tanpa registrasi</li>
+    <li><strong>Input:</strong> Koordinat latitude/longitude dari geo-tag kebun petani (sudah tersedia dari fitur LBS)</li>
+    <li><strong>Data yang diambil:</strong> Suhu udara (°C), Kelembaban relatif (%), Curah hujan saat ini (mm), Prakiraan hujan 7 hari</li>
+    <li><strong>Integrasi LLM:</strong> Data cuaca dikirim ke Gemini sebagai konteks tambahan untuk rekomendasi agronomis</li>
+    <li><strong>Alert:</strong> Notifikasi lokal jika prakiraan hujan &gt; threshold → peringatan angkat jemuran biji kopi</li>
+  </ul>
+  <pre><code>GET https://api.open-meteo.com/v1/forecast
+  ?latitude=-4.6167&longitude=96.8333
+  &current=temperature_2m,relative_humidity_2m,precipitation,rain
+  &forecast_days=7&timezone=Asia/Jakarta</code></pre>
+
+  <div class="section-divider"></div>
+
+  <!-- SECTION 4 -->
+  <h2><span class="section-num">4</span> Arsitektur Teknis</h2>
+  <div class="arch-box">┌─────────────────────────────────────────────────────┐
+│                  FLUTTER APP                        │
+│                                                     │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐  │
+│  │ UI Layer │  │  State   │  │   Service Layer  │  │
+│  │ (Screens)│  │  (Bloc/  │  │ ┌──────────────┐ │  │
+│  │          │  │  Cubit)  │  │ │ AI (TFLite)  │ │  │
+│  └──────────┘  └──────────┘  │ ├──────────────┤ │  │
+│                              │ │ LLM (Gemini) │ │  │
+│                              │ ├──────────────┤ │  │
+│                              │ │ Blockchain   │ │  │
+│                              │ ├──────────────┤ │  │
+│                              │ │ Frankfurter  │ │  │
+│                              │ │ (Currency)   │ │  │
+│                              │ ├──────────────┤ │  │
+│                              │ │ Open-Meteo   │ │  │
+│                              │ │ (Weather)    │ │  │
+│                              │ ├──────────────┤ │  │
+│                              │ │ flutter_map  │ │  │
+│                              │ │ (OSM + GPS)  │ │  │
+│                              │ └──────────────┘ │  │
+│                              └──────────────────┘  │
+├─────────────────────────────────────────────────────┤
+│              LOCAL STORAGE (Hive)                   │
+├─────────────────────────────────────────────────────┤
+│           ONLINE (Supabase / PostgreSQL)            │
+└─────────────────────────────────────────────────────┘</div>
+  <p><strong>State Management:</strong> Bloc/Cubit &nbsp;|&nbsp; <strong>Navigasi:</strong> GoRouter</p>
+
+  <div class="section-divider"></div>
+
+  <!-- SECTION 5 -->
+  <h2><span class="section-num">5</span> Struktur Layar (Screen Map)</h2>
+  <pre><code>Splash Screen
+└── Auth
+    ├── Login (email + biometric)
+    └── Register
+└── Main Shell (Bottom Nav)
+    ├── [1] Home / Batch Explorer
+    │   ├── Dashboard (Auction Clock, Harga Kopi, Peta Sentra)
+    │   ├── Batch List (search + filter)
+    │   └── Batch Detail
+    │       ├── Blockchain Certificate (QR)
+    │       ├── AI Advisor (LLM)
+    │       └── Logistik Tracker (Map)
+    ├── [2] Profil
+    │   ├── Edit Profil (foto)
+    │   └── Statistik Batch
+    ├── [3] Saran & Kesan
+    └── [4] Logout
+└── Feature Screens (akses dari Home/Batch)
+    ├── AI Defect Scanner (Kamera)
+    ├── Sensor Monitor (Accelerometer + Gyroscope)
+    ├── Add/Edit Batch Form
+    ├── Geo-tag Map Picker
+    ├── Market Prices (Frankfurter API)
+    ├── Plantation Weather Monitor (Open-Meteo API)
+    └── Mini Game (BeanSorter Blitz)</code></pre>
+
+  <div class="section-divider"></div>
+
+  <!-- SECTION 6 -->
+  <h2><span class="section-num">6</span> Keputusan Teknis — Final</h2>
+  <table>
+    <thead><tr><th>#</th><th>Keputusan</th><th>Pilihan ✅</th><th>Catatan</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>State Management</td><td><strong>Bloc/Cubit</strong></td><td>Familiar, banyak tutorial</td></tr>
+      <tr><td>2</td><td>Model AI TFLite</td><td><strong>Transfer learning MobileNetV2</strong></td><td>Simulasi label kopi, cepat jalan di emulator</td></tr>
+      <tr><td>3</td><td>Storage Online</td><td><strong>Supabase</strong> (PostgreSQL BaaS)</td><td>Setup cepat, ada built-in storage</td></tr>
+      <tr><td>4</td><td>User Roles</td><td><strong>Full multi-role</strong></td><td>Petani, Q-Grader, Eksportir, Admin</td></tr>
+      <tr><td>5</td><td>Currency API</td><td><strong>Frankfurter API</strong></td><td>Free, tanpa API key, IDR tersedia ✓</td></tr>
+      <tr><td>6</td><td>Map Provider</td><td><strong>OpenStreetMap</strong> via flutter_map</td><td>Gratis, tanpa API key</td></tr>
+      <tr><td>7</td><td>Mini Game Engine</td><td><strong>Flutter Canvas/CustomPaint</strong></td><td>Tidak perlu dependency tambahan</td></tr>
+      <tr><td>8</td><td>Weather API</td><td><strong>Open-Meteo API</strong></td><td>Free, tanpa API key, data pertanian lengkap</td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-divider"></div>
+
+  <!-- SECTION 7 -->
+  <h2><span class="section-num">7</span> Potensi Tantangan &amp; Mitigasi</h2>
+  <table>
+    <thead><tr><th>Tantangan</th><th>Mitigasi</th></tr></thead>
+    <tbody>
+      <tr><td>Model TFLite training memerlukan dataset</td><td>Gunakan transfer learning + label simulasi untuk demo</td></tr>
+      <tr><td>Biometric login di emulator tidak support</td><td>Fallback ke PIN / skip jika <code>local_auth</code> unavailable</td></tr>
+      <tr><td>Supabase setup &amp; RLS policy kompleks</td><td>Mulai tanpa RLS, tambahkan policy setelah fitur utama jalan</td></tr>
+      <tr><td>Blockchain hash-chain konsistensi offline-online</td><td>Simpan blok di Hive dahulu, sync ke Supabase saat online</td></tr>
+      <tr><td>Gemini API quota</td><td>Rate limiting + caching hasil LLM per batch</td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-divider"></div>
+
+  <!-- SECTION 8 -->
+  <h2><span class="section-num">8</span> Checklist Kriteria Tugas Akhir</h2>
+  <ul class="checklist">
+    <li>Konsep projek akhir ✓ (dokumen ini)</li>
+    <li>Login enkripsi (non-Firebase) + session (JWT)</li>
+    <li>Login biometric (Fingerprint via <code>local_auth</code>)</li>
+    <li>Database lokal (Hive) + online (Supabase)</li>
+    <li>Web service / API (Frankfurter, Open-Meteo, Gemini, Supabase REST) + LBS (OpenStreetMap)</li>
+    <li>Bottom navigation (Home, Profil, Saran &amp; Kesan, Logout)</li>
+    <li>Konversi mata uang — IDR, USD, GBP, EUR (Frankfurter API)</li>
+    <li>Konversi waktu — WIB, WITA, WIT, London</li>
+    <li>Sensor Accelerometer (Cargo Shock Monitor)</li>
+    <li>Sensor Gyroscope (Slope Meter / Clinometer)</li>
+    <li>Sensor Biometric Fingerprint (login biometric)</li>
+    <li>Fitur AI — Computer Vision MobileNetV2/TFLite (Defect Classifier)</li>
+    <li>Fitur LLM — Gemini 1.5 Flash (Export &amp; Roasting Advisory)</li>
+    <li>Mini game — BeanSorter Blitz (Flutter Canvas)</li>
+    <li>Pencarian &amp; pemilihan (filter batch kopi)</li>
+    <li>Notifikasi mobile (<code>flutter_local_notifications</code>)</li>
+    <li>Blockchain sederhana (SHA-256 hash-chain + QR Code)</li>
+    <li>Plantation Weather Monitor (Open-Meteo API) — <em>fitur bonus</em></li>
+  </ul>
+  <p><span class="status-badge">✅ 15/15 Kriteria Wajib + 1 Fitur Bonus Terpetakan</span></p>
+
+  <div class="section-divider"></div>
+
+  <!-- SECTION 9 -->
+  <h2><span class="section-num">9</span> Stack Teknologi Final</h2>
+  <table>
+    <thead><tr><th>Kategori</th><th>Teknologi</th></tr></thead>
+    <tbody>
+      <tr><td>Framework</td><td>Flutter (Android + iOS)</td></tr>
+      <tr><td>State Management</td><td>Bloc / Cubit</td></tr>
+      <tr><td>Navigasi</td><td>GoRouter</td></tr>
+      <tr><td>DB Lokal</td><td>Hive</td></tr>
+      <tr><td>DB Online</td><td>Supabase (PostgreSQL)</td></tr>
+      <tr><td>Auth</td><td>JWT + flutter_secure_storage + local_auth</td></tr>
+      <tr><td>Peta</td><td>flutter_map + OpenStreetMap + geolocator</td></tr>
+      <tr><td>Cuaca</td><td>Open-Meteo API</td></tr>
+      <tr><td>Mata Uang</td><td>Frankfurter API</td></tr>
+      <tr><td>AI On-Device</td><td>MobileNetV2 / TFLite</td></tr>
+      <tr><td>LLM</td><td>Google Gemini 1.5 Flash API</td></tr>
+      <tr><td>Blockchain</td><td>SHA-256 hash-chain (custom) + QR code</td></tr>
+      <tr><td>Notifikasi</td><td>flutter_local_notifications</td></tr>
+      <tr><td>Mini Game</td><td>Flutter Canvas / CustomPaint</td></tr>
+      <tr><td>Sensor</td><td>accelerometer, gyroscope, local_auth (biometric)</td></tr>
+    </tbody>
+  </table>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <span>🫘 BeanOrigin — Concept Maturation Document</span>
+    <span>Pemrograman Aplikasi Mobile | 2026</span>
+  </div>
+
+</div>
+</body>
+</html>

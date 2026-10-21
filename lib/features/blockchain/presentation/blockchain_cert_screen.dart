@@ -4,6 +4,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:bean_origin/core/theme/app_theme.dart';
 import 'package:bean_origin/shared/models/batch_model.dart';
 import 'package:bean_origin/shared/models/block_model.dart';
+import 'package:bean_origin/features/blockchain/data/blockchain_service.dart';
 
 class BlockchainCertScreen extends StatefulWidget {
   final BatchModel batch;
@@ -13,47 +14,85 @@ class BlockchainCertScreen extends StatefulWidget {
   State<BlockchainCertScreen> createState() => _BlockchainCertScreenState();
 }
 
-class _BlockchainCertScreenState extends State<BlockchainCertScreen> {
+class _BlockchainCertScreenState extends State<BlockchainCertScreen>
+    with SingleTickerProviderStateMixin {
+  final BlockchainService _blockchain = BlockchainService();
   late BlockModel _block;
   bool _isVerified = false;
   bool _isVerifying = false;
+  bool _isLoading = true;
+  ChainVerificationResult? _chainResult;
+  late AnimationController _verifyAnimController;
 
   @override
   void initState() {
     super.initState();
-    _generateBlock();
+    _verifyAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _initBlock();
   }
 
-  void _generateBlock() {
-    final genesis = BlockModel.genesis();
-    _block = BlockModel.create(
-      index: 1,
-      batchId: widget.batch.id,
-      batchData: {
-        'variety': widget.batch.variety,
-        'origin': widget.batch.origin,
-        'elevation_masl': widget.batch.elevationMasl,
-        'process': widget.batch.process,
-        'cupping_score': widget.batch.cuppingScore,
-        'farmer': widget.batch.farmerName,
-        'weight_kg': widget.batch.weightKg,
-        'moisture_content': widget.batch.moistureContent,
-      },
-      previousHash: genesis.hash,
-    );
+  @override
+  void dispose() {
+    _verifyAnimController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initBlock() async {
+    await _blockchain.initialize();
+
+    // Check if this batch already has a block
+    final existingBlocks = _blockchain.getBlocksForBatch(widget.batch.id);
+
+    if (existingBlocks.isNotEmpty) {
+      _block = existingBlocks.last;
+    } else {
+      // Create a new block for this batch (persisted in Hive)
+      _block = await _blockchain.addBlock(widget.batch);
+    }
+
+    setState(() => _isLoading = false);
   }
 
   Future<void> _verifyChain() async {
     setState(() => _isVerifying = true);
-    await Future.delayed(const Duration(seconds: 1));
+    _verifyAnimController.repeat();
+
+    await Future.delayed(const Duration(milliseconds: 1200));
+
+    final blockValid = _blockchain.verifyBlock(_block);
+    final chainResult = _blockchain.verifyChain();
+
+    _verifyAnimController.stop();
+    _verifyAnimController.reset();
+
     setState(() {
-      _isVerified = _block.isValid();
+      _isVerified = blockValid && chainResult.isValid;
+      _chainResult = chainResult;
       _isVerifying = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Sertifikat Blockchain')),
+        body: const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: AppColors.accent),
+              SizedBox(height: 16),
+              Text('Memuat blockchain...', style: TextStyle(color: AppColors.textSecondary)),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Sertifikat Blockchain'),
@@ -61,6 +100,12 @@ class _BlockchainCertScreenState extends State<BlockchainCertScreen> {
           icon: const Icon(Icons.arrow_back_ios_new, size: 20),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline, color: AppColors.textSecondary),
+            onPressed: _showChainStats,
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -84,6 +129,10 @@ class _BlockchainCertScreenState extends State<BlockchainCertScreen> {
 
             // Verify Button
             _buildVerifySection(),
+            const SizedBox(height: 16),
+
+            // Chain Statistics
+            _buildChainStats(),
             const SizedBox(height: 16),
 
             // Batch Data in Block
@@ -175,11 +224,11 @@ class _BlockchainCertScreenState extends State<BlockchainCertScreen> {
             size: 200,
             backgroundColor: Colors.white,
             eyeStyle: const QrEyeStyle(
-              eyeShape: QrEyeShape.roundedOuter,
+              eyeShape: QrEyeShape.square,
               color: Color(0xFF2D1B0E),
             ),
             dataModuleStyle: const QrDataModuleStyle(
-              dataModuleShape: QrDataModuleShape.roundedOutsideCorners,
+              dataModuleShape: QrDataModuleShape.square,
               color: Color(0xFF2D1B0E),
             ),
           ),
@@ -278,6 +327,12 @@ class _BlockchainCertScreenState extends State<BlockchainCertScreen> {
           ),
           const SizedBox(height: 10),
 
+          // Arrow
+          const Center(
+            child: Icon(Icons.arrow_downward_rounded, color: AppColors.accent, size: 20),
+          ),
+          const SizedBox(height: 6),
+
           // Current Hash
           const Text('Current Hash:', style: TextStyle(fontSize: 11, color: AppColors.textHint)),
           const SizedBox(height: 4),
@@ -310,32 +365,86 @@ class _BlockchainCertScreenState extends State<BlockchainCertScreen> {
         ElevatedButton.icon(
           onPressed: _isVerifying ? null : _verifyChain,
           icon: _isVerifying
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.bgDark),
+              ? RotationTransition(
+                  turns: _verifyAnimController,
+                  child: const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: Icon(Icons.sync_rounded, size: 18),
+                  ),
                 )
               : const Icon(Icons.verified_user_rounded, size: 20),
           label: Text(_isVerifying ? 'Memverifikasi...' : 'Verifikasi Hash Chain'),
           style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
         ),
-        if (_isVerified) ...[
+        if (_isVerified && _chainResult != null) ...[
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.success.withValues(alpha: 0.1),
+              color: _chainResult!.isValid
+                  ? AppColors.success.withValues(alpha: 0.1)
+                  : AppColors.error.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+              border: Border.all(
+                color: _chainResult!.isValid
+                    ? AppColors.success.withValues(alpha: 0.3)
+                    : AppColors.error.withValues(alpha: 0.3),
+              ),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20),
-                SizedBox(width: 8),
+                Icon(
+                  _chainResult!.isValid ? Icons.check_circle_rounded : Icons.error_rounded,
+                  color: _chainResult!.isValid ? AppColors.success : AppColors.error,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _chainResult!.message,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: _chainResult!.isValid ? AppColors.success : AppColors.error,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (_chainResult!.isValid) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          'Integritas data batch terjamin. Tidak ada modifikasi terdeteksi.',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: AppColors.success.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ] else if (!_isVerified && _chainResult != null) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.error.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error_outline, color: AppColors.error, size: 20),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '✅ Hash valid! Integritas data batch terjamin.',
-                    style: TextStyle(fontSize: 12, color: AppColors.success, fontWeight: FontWeight.w600),
+                    _chainResult!.message,
+                    style: const TextStyle(fontSize: 12, color: AppColors.error, fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
@@ -343,6 +452,67 @@ class _BlockchainCertScreenState extends State<BlockchainCertScreen> {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildChainStats() {
+    final stats = _blockchain.getStatistics();
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.bgSurface,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.analytics_outlined, color: AppColors.accent, size: 18),
+              SizedBox(width: 8),
+              Text(
+                'Statistik Blockchain',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _buildStatChip('Total Blok', '${stats['total_blocks']}'),
+              const SizedBox(width: 8),
+              _buildStatChip('Batch', '${stats['unique_batches']}'),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _buildInfoRow('Genesis', '${stats['genesis_hash']}...'),
+          const SizedBox(height: 4),
+          _buildInfoRow('Latest', '${stats['latest_hash']}...'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatChip(String label, String value) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.bgCard,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFF3D2E22)),
+        ),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.accent),
+            ),
+            const SizedBox(height: 2),
+            Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textHint)),
+          ],
+        ),
+      ),
     );
   }
 
@@ -384,6 +554,63 @@ class _BlockchainCertScreenState extends State<BlockchainCertScreen> {
                 fontFamily: 'monospace',
                 height: 1.5,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showChainStats() {
+    final stats = _blockchain.getStatistics();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.bgCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.link, color: AppColors.accent, size: 22),
+            SizedBox(width: 8),
+            Text('Blockchain Info', style: TextStyle(color: AppColors.textPrimary, fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _statRow('Total Blok', '${stats['total_blocks']}'),
+            _statRow('Chain Length', '${stats['chain_length']}'),
+            _statRow('Unique Batches', '${stats['unique_batches']}'),
+            _statRow('Genesis Hash', '${stats['genesis_hash']}...'),
+            _statRow('Latest Hash', '${stats['latest_hash']}...'),
+            _statRow('Updated', '${stats['latest_timestamp']}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tutup', style: TextStyle(color: AppColors.accent)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textHint)),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
             ),
           ),
         ],

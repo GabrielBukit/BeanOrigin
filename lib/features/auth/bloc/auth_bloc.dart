@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:bean_origin/shared/models/user_model.dart';
+import 'package:bean_origin/features/auth/data/auth_repository.dart';
 
 // ─── Events ─────────────────────────────────────────────
 abstract class AuthEvent extends Equatable {
@@ -36,6 +37,8 @@ class AuthRegisterRequested extends AuthEvent {
 
 class AuthBiometricRequested extends AuthEvent {}
 
+class AuthEnableBiometric extends AuthEvent {}
+
 class AuthLogoutRequested extends AuthEvent {}
 
 // ─── States ─────────────────────────────────────────────
@@ -67,40 +70,42 @@ class AuthError extends AuthState {
 
 // ─── Bloc ───────────────────────────────────────────────
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
+  final AuthRepository _repository = AuthRepository();
+
   AuthBloc() : super(AuthInitial()) {
     on<AuthCheckRequested>(_onCheckAuth);
     on<AuthLoginRequested>(_onLogin);
     on<AuthRegisterRequested>(_onRegister);
     on<AuthBiometricRequested>(_onBiometricLogin);
+    on<AuthEnableBiometric>(_onEnableBiometric);
     on<AuthLogoutRequested>(_onLogout);
   }
 
   Future<void> _onCheckAuth(AuthCheckRequested event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
-    await Future.delayed(const Duration(milliseconds: 1500));
-    // TODO: Check JWT token from flutter_secure_storage
-    emit(AuthUnauthenticated());
+    try {
+      await Future.delayed(const Duration(milliseconds: 800));
+      final user = await _repository.checkSession();
+      if (user != null) {
+        emit(AuthAuthenticated(user));
+      } else {
+        emit(AuthUnauthenticated());
+      }
+    } catch (e) {
+      emit(AuthUnauthenticated());
+    }
   }
 
   Future<void> _onLogin(AuthLoginRequested event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
     try {
-      await Future.delayed(const Duration(seconds: 1));
-
-      // TODO: Replace with real Supabase auth
-      // Simulasi login berhasil
-      if (event.email.isNotEmpty && event.password.length >= 6) {
-        final user = UserModel(
-          id: 'user_001',
-          email: event.email,
-          name: event.email.split('@').first,
-          role: 'farmer',
-          createdAt: DateTime.now(),
-        );
-        emit(AuthAuthenticated(user));
-      } else {
-        emit(const AuthError('Email atau password salah'));
-      }
+      final user = await _repository.login(
+        email: event.email,
+        password: event.password,
+      );
+      emit(AuthAuthenticated(user));
+    } on AuthException catch (e) {
+      emit(AuthError(e.message));
     } catch (e) {
       emit(AuthError('Login gagal: ${e.toString()}'));
     }
@@ -109,17 +114,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Future<void> _onRegister(AuthRegisterRequested event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
     try {
-      await Future.delayed(const Duration(seconds: 1));
-
-      // TODO: Replace with real Supabase registration
-      final user = UserModel(
-        id: 'user_${DateTime.now().millisecondsSinceEpoch}',
-        email: event.email,
+      final user = await _repository.register(
         name: event.name,
+        email: event.email,
+        password: event.password,
         role: event.role,
-        createdAt: DateTime.now(),
       );
       emit(AuthAuthenticated(user));
+    } on AuthException catch (e) {
+      emit(AuthError(e.message));
     } catch (e) {
       emit(AuthError('Registrasi gagal: ${e.toString()}'));
     }
@@ -128,18 +131,41 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Future<void> _onBiometricLogin(AuthBiometricRequested event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
     try {
-      // TODO: Implement local_auth biometric + retrieve stored JWT
-      await Future.delayed(const Duration(seconds: 1));
-      emit(const AuthError('Biometric belum dikonfigurasi'));
+      final isAvailable = await _repository.isBiometricAvailable();
+      if (!isAvailable) {
+        emit(const AuthError('Perangkat tidak mendukung autentikasi biometric'));
+        return;
+      }
+
+      final user = await _repository.biometricLogin();
+      emit(AuthAuthenticated(user));
+    } on AuthException catch (e) {
+      emit(AuthError(e.message));
     } catch (e) {
       emit(AuthError('Biometric gagal: ${e.toString()}'));
     }
   }
 
+  Future<void> _onEnableBiometric(AuthEnableBiometric event, Emitter<AuthState> emit) async {
+    try {
+      final isAvailable = await _repository.isBiometricAvailable();
+      if (!isAvailable) {
+        // Silently fail — biometric not available
+        return;
+      }
+      await _repository.enableBiometric();
+    } catch (_) {
+      // Non-critical, don't change state
+    }
+  }
+
   Future<void> _onLogout(AuthLogoutRequested event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
-    // TODO: Clear JWT, clear Hive cache
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      await _repository.logout();
+    } catch (_) {
+      // Continue with logout even if secure storage fails
+    }
     emit(AuthUnauthenticated());
   }
 }

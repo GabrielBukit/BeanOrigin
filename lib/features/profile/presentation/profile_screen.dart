@@ -7,7 +7,6 @@ import 'package:bean_origin/core/router/app_router.dart';
 import 'package:bean_origin/features/auth/bloc/auth_bloc.dart';
 import 'package:bean_origin/features/auth/data/auth_repository.dart';
 import 'package:bean_origin/features/batch/data/batch_repository.dart';
-import 'package:bean_origin/features/blockchain/data/blockchain_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -154,7 +153,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _showBiometricDialog() async {
     final repo = AuthRepository();
     final isAvailable = await repo.isBiometricAvailable();
-    final availableTypes = await repo.getAvailableBiometrics();
 
     if (!mounted) return;
 
@@ -219,7 +217,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 16),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                activeColor: AppColors.accent,
+                activeTrackColor: AppColors.accent.withValues(alpha: 0.5),
+                activeThumbColor: AppColors.accent,
                 title: const Text('Aktifkan Fingerprint', style: TextStyle(color: AppColors.textPrimary, fontSize: 14)),
                 subtitle: Text(
                   _biometricEnabled ? 'Status: Aktif' : 'Status: Nonaktif',
@@ -248,25 +247,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
               label: const Text('Uji Sensor'),
               onPressed: () async {
                 Navigator.pop(ctx);
+                final scaffoldMessenger = ScaffoldMessenger.of(context);
                 try {
                   final user = await repo.biometricLogin();
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Autentikasi sidik jari berhasil! Akun: ${user.name}'),
-                        backgroundColor: AppColors.success,
-                      ),
-                    );
-                  }
+                  if (!mounted) return;
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(
+                      content: Text('Autentikasi sidik jari berhasil! Akun: ${user.name}'),
+                      backgroundColor: AppColors.success,
+                    ),
+                  );
                 } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Uji Biometrik: ${e.toString()}'),
-                        backgroundColor: AppColors.error,
-                      ),
-                    );
-                  }
+                  if (!mounted) return;
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(
+                      content: Text('Uji Biometrik: ${e.toString()}'),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
                 }
               },
             ),

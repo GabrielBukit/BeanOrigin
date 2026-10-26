@@ -83,7 +83,6 @@ class NotificationService {
 
   void _onNotificationTapped(NotificationResponse response) {
     debugPrint('Notification tapped: ${response.payload}');
-    // TODO: Navigate based on payload
   }
 
   // ─── Auction Alarm ─────────────────────────────────────────

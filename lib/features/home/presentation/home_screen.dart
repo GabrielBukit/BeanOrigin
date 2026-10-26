@@ -260,32 +260,27 @@ class _HomeScreenState extends State<HomeScreen> {
         final name = user?.name ?? 'Pengguna';
 
         Color badgeColor;
-        String roleTitle;
         String roleDesc;
         IconData roleIcon;
 
         switch (role) {
           case 'q_grader':
             badgeColor = AppColors.warning;
-            roleTitle = '🔬 Q-Grader / Kurator Mutu';
             roleDesc = 'Fokus: Periksa sampel biji kopi dengan AI Scanner & verifikasi skor cupping SCA.';
             roleIcon = Icons.rate_review_rounded;
             break;
           case 'exporter':
             badgeColor = AppColors.info;
-            roleTitle = '📦 Eksportir Komoditas';
             roleDesc = 'Fokus: Pantau lelang ICE London, live valas, & kargo kontainer ke pelabuhan ekspor.';
             roleIcon = Icons.local_shipping_rounded;
             break;
           case 'admin':
             badgeColor = const Color(0xFF9C27B0);
-            roleTitle = '👤 Super Admin BeanOrigin';
             roleDesc = 'Akses penuh: Manajemen pengguna, audit blockchain ledger, & monitoring suplai nasional.';
             roleIcon = Icons.admin_panel_settings_rounded;
             break;
           default:
             badgeColor = AppColors.accent;
-            roleTitle = '🌱 Petani Kopi Mandiri';
             roleDesc = 'Fokus: Daftarkan panen baru dengan GPS, pantau cuaca kebun, & konsultasi LLM AI.';
             roleIcon = Icons.eco_rounded;
         }

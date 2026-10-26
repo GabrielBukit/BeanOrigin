@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:crypto/crypto.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:bean_origin/core/utils/constants.dart';
 import 'package:bean_origin/shared/models/batch_model.dart';

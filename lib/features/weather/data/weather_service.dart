@@ -243,7 +243,7 @@ class WeatherService {
       if (e is WeatherException) rethrow;
 
       // Return fallback data on network error
-      return _fallbackData(latitude, longitude, locationName);
+      return getFallbackData(latitude, longitude, locationName);
     }
   }
 

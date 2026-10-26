@@ -72,7 +72,11 @@ class _LoginScreenState extends State<LoginScreen>
                       children: [
                         // Logo & Title
                         _buildHeader(),
-                        const SizedBox(height: 48),
+                        const SizedBox(height: 32),
+
+                        // Quick Demo Chips
+                        _buildQuickDemoChips(),
+                        const SizedBox(height: 20),
 
                         // Email Field
                         _buildEmailField(),
@@ -289,6 +293,47 @@ class _LoginScreenState extends State<LoginScreen>
               fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickDemoChips() {
+    final demos = [
+      {'label': '🌱 Petani', 'email': 'demo@beanorigin.id', 'pass': 'password123'},
+      {'label': '🔬 Q-Grader', 'email': 'qgrader@beanorigin.id', 'pass': 'password123'},
+      {'label': '📦 Eksportir', 'email': 'exporter@beanorigin.id', 'pass': 'password123'},
+      {'label': '👤 Admin', 'email': 'admin@beanorigin.id', 'pass': 'admin123'},
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Akun Demo (1-Tap):',
+          style: TextStyle(fontSize: 12, color: AppColors.textHint, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: demos.map((d) {
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ActionChip(
+                  backgroundColor: AppColors.bgSurface,
+                  side: const BorderSide(color: Color(0xFF3D2E22)),
+                  label: Text(d['label']!, style: const TextStyle(fontSize: 12, color: AppColors.textPrimary)),
+                  onPressed: () {
+                    setState(() {
+                      _emailController.text = d['email']!;
+                      _passwordController.text = d['pass']!;
+                    });
+                  },
+                ),
+              );
+            }).toList(),
           ),
         ),
       ],

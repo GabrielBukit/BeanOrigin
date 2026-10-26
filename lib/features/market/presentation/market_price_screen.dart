@@ -16,10 +16,14 @@ class MarketPriceScreen extends StatefulWidget {
 class _MarketPriceScreenState extends State<MarketPriceScreen> with SingleTickerProviderStateMixin {
   final _amountController = TextEditingController(text: '1');
   String _baseCurrency = 'USD';
-  Map<String, double> _rates = {};
-  bool _isLoading = true;
+  Map<String, double> _rates = {
+    'USD': 1.0,
+    'IDR': 16920.0,
+    'GBP': 0.787,
+    'EUR': 0.913,
+  };
   String? _error;
-  DateTime? _lastUpdated;
+  DateTime? _lastUpdated = DateTime.now();
   late AnimationController _refreshAnimController;
 
   // Simulated coffee price per kg in USD
@@ -43,45 +47,33 @@ class _MarketPriceScreenState extends State<MarketPriceScreen> with SingleTicker
   }
 
   Future<void> _fetchRates() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
     _refreshAnimController.repeat();
 
     try {
       final currencies = AppConstants.supportedCurrencies.where((c) => c != _baseCurrency).join(',');
       final url = '${AppConstants.frankfurterBaseUrl}/latest?from=$_baseCurrency&to=$currencies';
-      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 4));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final ratesData = data['rates'] as Map<String, dynamic>;
-        setState(() {
-          _rates = ratesData.map((key, value) => MapEntry(key, (value as num).toDouble()));
-          _rates[_baseCurrency] = 1.0;
-          _lastUpdated = DateTime.now();
-          _isLoading = false;
-        });
-      } else {
-        throw Exception('HTTP ${response.statusCode}');
+        if (mounted) {
+          setState(() {
+            _rates = ratesData.map((key, value) => MapEntry(key, (value as num).toDouble()));
+            _rates[_baseCurrency] = 1.0;
+            _lastUpdated = DateTime.now();
+            _error = null;
+          });
+        }
       }
-    } catch (e) {
-      // Fallback with simulated rates
-      setState(() {
-        _rates = {
-          'USD': 1.0,
-          'IDR': 16920.0,
-          'GBP': 0.787,
-          'EUR': 0.913,
-        };
-        _lastUpdated = DateTime.now();
-        _isLoading = false;
-        _error = 'Menggunakan data offline: $e';
-      });
+    } catch (_) {
+      // Keep existing rates
+    } finally {
+      if (mounted) {
+        _refreshAnimController.stop();
+        _refreshAnimController.reset();
+      }
     }
-    _refreshAnimController.stop();
-    _refreshAnimController.reset();
   }
 
   double _convert(double amount, String from, String to) {
@@ -220,7 +212,7 @@ class _MarketPriceScreenState extends State<MarketPriceScreen> with SingleTicker
           ),
           const SizedBox(height: 16),
           // Price in all currencies
-          if (!_isLoading) ...[
+          if (_rates.isNotEmpty)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: AppConstants.supportedCurrencies.map((currency) {
@@ -229,8 +221,6 @@ class _MarketPriceScreenState extends State<MarketPriceScreen> with SingleTicker
                 return _buildPriceChip(currency, formatted, _getCurrencyFlag(currency));
               }).toList(),
             ),
-          ] else
-            const Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accent)),
         ],
       ),
     );
@@ -342,7 +332,7 @@ class _MarketPriceScreenState extends State<MarketPriceScreen> with SingleTicker
           const SizedBox(height: 16),
 
           // Converted amounts
-          if (!_isLoading)
+          if (_rates.isNotEmpty)
             ...AppConstants.supportedCurrencies.where((c) => c != _baseCurrency).map((currency) {
               final amount = double.tryParse(_amountController.text) ?? 1;
               final converted = _convert(amount, _baseCurrency, currency);
@@ -391,7 +381,7 @@ class _MarketPriceScreenState extends State<MarketPriceScreen> with SingleTicker
   }
 
   Widget _buildRateCards() {
-    if (_isLoading || _rates.isEmpty) return const SizedBox.shrink();
+    if (_rates.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

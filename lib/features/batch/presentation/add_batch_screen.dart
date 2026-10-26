@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:bean_origin/core/theme/app_theme.dart';
 import 'package:bean_origin/core/utils/constants.dart';
 import 'package:bean_origin/shared/models/batch_model.dart';
 import 'package:bean_origin/features/batch/bloc/batch_bloc.dart';
+import 'package:bean_origin/features/auth/bloc/auth_bloc.dart';
 
 class AddBatchScreen extends StatefulWidget {
   const AddBatchScreen({super.key});
@@ -21,10 +23,12 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
   final _notesController = TextEditingController();
   final _latController = TextEditingController();
   final _lonController = TextEditingController();
+  final _slopeController = TextEditingController();
 
   String _selectedVariety = AppConstants.coffeeVarieties.first;
   String _selectedOrigin = AppConstants.coffeeOrigins.first;
   String _selectedProcess = AppConstants.coffeeProcesses.first;
+  bool _isLocating = false;
 
   @override
   void dispose() {
@@ -34,16 +38,110 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
     _notesController.dispose();
     _latController.dispose();
     _lonController.dispose();
+    _slopeController.dispose();
     super.dispose();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    setState(() => _isLocating = true);
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Layanan lokasi GPS belum aktif di perangkat.'),
+              backgroundColor: AppColors.warning,
+            ),
+          );
+        }
+        setState(() => _isLocating = false);
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Izin akses lokasi GPS ditolak.'),
+                backgroundColor: AppColors.error,
+              ),
+            );
+          }
+          setState(() => _isLocating = false);
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Izin lokasi ditolak permanen, aktifkan di Pengaturan.'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+        setState(() => _isLocating = false);
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+
+      setState(() {
+        _latController.text = position.latitude.toStringAsFixed(6);
+        _lonController.text = position.longitude.toStringAsFixed(6);
+        if (position.altitude > 0 && _elevationController.text.isEmpty) {
+          _elevationController.text = position.altitude.toStringAsFixed(0);
+        }
+        _isLocating = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('📍 Koordinat berhasil diperoleh: ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _isLocating = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal membaca GPS: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   void _submitBatch() {
     if (!_formKey.currentState!.validate()) return;
 
+    final authState = context.read<AuthBloc>().state;
+    String farmerId = 'user_001';
+    String farmerName = 'Petani Kopi';
+
+    if (authState is AuthAuthenticated) {
+      farmerId = authState.user.id;
+      farmerName = authState.user.name;
+    }
+
     final batch = BatchModel(
       id: 'BATCH-${const Uuid().v4().substring(0, 6).toUpperCase()}',
-      farmerId: 'user_001',
-      farmerName: 'Current User',
+      farmerId: farmerId,
+      farmerName: farmerName,
       variety: _selectedVariety,
       origin: _selectedOrigin,
       process: _selectedProcess,
@@ -52,6 +150,7 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
       weightKg: double.tryParse(_weightController.text),
       latitude: double.tryParse(_latController.text),
       longitude: double.tryParse(_lonController.text),
+      slopeAngle: double.tryParse(_slopeController.text),
       notes: _notesController.text.isNotEmpty ? _notesController.text : null,
       status: AppConstants.statusPending,
       createdAt: DateTime.now(),
@@ -61,7 +160,7 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('✅ Batch berhasil ditambahkan!'),
+        content: Text('✅ Batch berhasil didaftarkan ke sistem!'),
         backgroundColor: AppColors.success,
       ),
     );
@@ -115,7 +214,7 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
               const SizedBox(height: 24),
 
               // Section: Data Teknis
-              _buildSectionTitle('📊 Data Teknis'),
+              _buildSectionTitle('📊 Data Teknis & Sensor Lahan'),
               const SizedBox(height: 12),
 
               Row(
@@ -144,18 +243,53 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
               ),
               const SizedBox(height: 12),
 
-              _buildTextField(
-                controller: _moistureController,
-                label: 'Kadar Air (%)',
-                hint: '11.5',
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                icon: Icons.water_drop_outlined,
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildTextField(
+                      controller: _moistureController,
+                      label: 'Kadar Air (%)',
+                      hint: '11.5',
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      icon: Icons.water_drop_outlined,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildTextField(
+                      controller: _slopeController,
+                      label: 'Kemiringan (°)',
+                      hint: '12.0',
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      icon: Icons.landscape_rounded,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 24),
 
-              // Section: Lokasi
-              _buildSectionTitle('📍 Koordinat GPS'),
-              const SizedBox(height: 12),
+              // Section: Lokasi (LBS Geo-tagging)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildSectionTitle('📍 Geo-tag Lokasi Kebun'),
+                  TextButton.icon(
+                    onPressed: _isLocating ? null : _getCurrentLocation,
+                    icon: _isLocating
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accent),
+                          )
+                        : const Icon(Icons.my_location_rounded, size: 16, color: AppColors.accent),
+                    label: Text(
+                      _isLocating ? 'Mencari...' : 'Deteksi GPS',
+                      style: const TextStyle(color: AppColors.accent, fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
 
               Row(
                 children: [
@@ -183,7 +317,7 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
               const SizedBox(height: 24),
 
               // Section: Catatan
-              _buildSectionTitle('📝 Catatan'),
+              _buildSectionTitle('📝 Catatan Tambahan'),
               const SizedBox(height: 12),
 
               TextFormField(
@@ -191,7 +325,7 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
                 maxLines: 4,
                 style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
                 decoration: const InputDecoration(
-                  hintText: 'Catatan tambahan tentang batch ini...',
+                  hintText: 'Catatan tambahan tentang pemupukan, naungan, atau metode pengolahan batch...',
                 ),
               ),
               const SizedBox(height: 32),
@@ -200,7 +334,7 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
               ElevatedButton.icon(
                 onPressed: _submitBatch,
                 icon: const Icon(Icons.add_circle_outline, size: 20),
-                label: const Text('Simpan Batch'),
+                label: const Text('Simpan & Daftarkan Batch'),
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 54),
                 ),
@@ -231,13 +365,13 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
     ValueChanged<String?> onChanged,
   ) {
     return DropdownButtonFormField<String>(
-      value: value,
+      initialValue: value,
       dropdownColor: AppColors.bgCard,
       isExpanded: true,
       style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(Icons.coffee_rounded, color: AppColors.accent, size: 20),
+        prefixIcon: const Icon(Icons.coffee_rounded, color: AppColors.accent, size: 20),
       ),
       items: items.map((item) {
         return DropdownMenuItem(value: item, child: Text(item));

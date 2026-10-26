@@ -160,7 +160,7 @@ class NotificationService {
 
     await _plugin.show(
       currencyAlertId + currency.hashCode % 100,
-      '$emoji Kurs $currency ${direction}!',
+      '$emoji Kurs $currency $direction!',
       '$currency $direction ${changePercent.abs().toStringAsFixed(2)}% — '
           'dari ${oldRate.toStringAsFixed(oldRate > 100 ? 0 : 2)} '
           'ke ${newRate.toStringAsFixed(newRate > 100 ? 0 : 2)}',

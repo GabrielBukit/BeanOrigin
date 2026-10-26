@@ -81,7 +81,7 @@ class AuthRepository {
     })));
 
     final now = DateTime.now().toUtc();
-    final expiry = now.add(const Duration(hours: 24));
+    final expiry = now.add(const Duration(hours: 3)); // Sesi aktif selama 3 jam
     final payload = base64Url.encode(utf8.encode(jsonEncode({
       'sub': user.id,
       'email': user.email,
@@ -93,7 +93,7 @@ class AuthRepository {
 
     // Simplified signature (in production, use server-side HMAC)
     final signatureInput = '$header.$payload';
-    final signatureBytes = utf8.encode(signatureInput + 'bean_origin_secret_key');
+    final signatureBytes = utf8.encode('${signatureInput}bean_origin_secret_key');
     final signature = base64Url.encode(sha256.convert(signatureBytes).bytes);
 
     return '$header.$payload.$signature';
@@ -106,9 +106,6 @@ class AuthRepository {
     required String email,
     required String password,
   }) async {
-    // Simulate network delay
-    await Future.delayed(const Duration(milliseconds: 800));
-
     final normalizedEmail = email.trim().toLowerCase();
     final userData = _usersDb[normalizedEmail];
 
@@ -153,8 +150,6 @@ class AuthRepository {
     required String password,
     required String role,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 800));
-
     final normalizedEmail = email.trim().toLowerCase();
 
     if (_usersDb.containsKey(normalizedEmail)) {
@@ -282,7 +277,10 @@ class AuthRepository {
   /// Check if user has a valid session (JWT not expired)
   Future<UserModel?> checkSession() async {
     try {
-      final jwt = await _secureStorage.read(key: AppConstants.keyJwtToken);
+      final jwt = await _secureStorage.read(key: AppConstants.keyJwtToken).timeout(
+            const Duration(seconds: 1),
+            onTimeout: () => null,
+          );
       if (jwt == null) return null;
 
       // Check JWT expiry
@@ -292,7 +290,10 @@ class AuthRepository {
       }
 
       // Decode user from cached data
-      final cachedUserJson = await _secureStorage.read(key: 'cached_user');
+      final cachedUserJson = await _secureStorage.read(key: 'cached_user').timeout(
+            const Duration(seconds: 1),
+            onTimeout: () => null,
+          );
       if (cachedUserJson != null) {
         final userData = jsonDecode(cachedUserJson) as Map<String, dynamic>;
         return UserModel.fromJson(userData);

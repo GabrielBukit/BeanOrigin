@@ -84,7 +84,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Future<void> _onCheckAuth(AuthCheckRequested event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
     try {
-      await Future.delayed(const Duration(milliseconds: 800));
       final user = await _repository.checkSession();
       if (user != null) {
         emit(AuthAuthenticated(user));

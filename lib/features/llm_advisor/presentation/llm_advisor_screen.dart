@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:bean_origin/core/theme/app_theme.dart';
 import 'package:bean_origin/shared/models/batch_model.dart';
+import 'package:bean_origin/features/llm_advisor/data/llm_service.dart';
 
 class LlmAdvisorScreen extends StatefulWidget {
   final BatchModel? batch;
@@ -16,7 +17,10 @@ class _LlmAdvisorScreenState extends State<LlmAdvisorScreen> {
   String? _cuppingNotes;
   String? _exportChecklist;
   String? _error;
+  String? _customAnswer;
+  bool _isAskingCustom = false;
   final _customPromptController = TextEditingController();
+  final _llmService = LlmService();
 
   @override
   void initState() {
@@ -38,139 +42,53 @@ class _LlmAdvisorScreenState extends State<LlmAdvisorScreen> {
       _error = null;
     });
 
-    // Simulate Gemini API call
-    await Future.delayed(const Duration(seconds: 2));
+    try {
+      final batch = widget.batch;
+      if (batch != null) {
+        final result = await _llmService.generateAdvisory(batch);
+        setState(() {
+          _roastingAdvice = result['roasting'] ?? 'Tidak ada data';
+          _cuppingNotes = result['cupping'] ?? 'Tidak ada data';
+          _exportChecklist = result['export'] ?? 'Tidak ada data';
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _roastingAdvice = 'Pilih batch terlebih dahulu untuk mendapatkan rekomendasi roasting.';
+          _cuppingNotes = 'Pilih batch terlebih dahulu.';
+          _exportChecklist = 'Pilih batch terlebih dahulu.';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _error = 'Gagal menghasilkan advisory: $e';
+        _isLoading = false;
+      });
+    }
+  }
 
-    final batch = widget.batch;
+  Future<void> _askCustomQuestion() async {
+    final question = _customPromptController.text.trim();
+    if (question.isEmpty) return;
 
     setState(() {
-      _isLoading = false;
-
-      if (batch != null) {
-        _roastingAdvice = _generateRoastingProfile(batch);
-        _cuppingNotes = _generateCuppingNotes(batch);
-        _exportChecklist = _generateExportChecklist(batch);
-      } else {
-        _roastingAdvice = 'Pilih batch terlebih dahulu untuk mendapatkan rekomendasi roasting.';
-        _cuppingNotes = 'Pilih batch terlebih dahulu.';
-        _exportChecklist = 'Pilih batch terlebih dahulu.';
-      }
+      _isAskingCustom = true;
+      _customAnswer = null;
     });
-  }
 
-  String _generateRoastingProfile(BatchModel batch) {
-    final isHighAlt = batch.elevationMasl > 1400;
-    final isSpecialty = (batch.cuppingScore ?? 0) >= 85;
-
-    if (isHighAlt && isSpecialty) {
-      return '''🔥 Profil Roasting Rekomendasi: LIGHT ROAST
-
-📊 Parameter:
-• Suhu awal: 180°C (charge temperature)
-• Suhu first crack: 196-200°C
-• Drop temperature: 202-205°C
-• Durasi total: 10-12 menit
-• Development time: 15-18% dari total
-
-💡 Alasan:
-Biji ${batch.variety} dari ${batch.origin} pada ketinggian ${batch.elevationMasl.toInt()} mdpl memiliki kepadatan tinggi dan kompleksitas rasa yang optimal untuk light roast. Proses ${batch.process} akan menghasilkan profil rasa yang lebih terang.
-
-⚡ Tips:
-• Gunakan airflow tinggi di awal untuk menghilangkan moisture
-• Kurangi gas secara bertahap menjelang first crack
-• Jangan melebihi first crack lebih dari 1 menit''';
-    } else if (isHighAlt) {
-      return '''🔥 Profil Roasting Rekomendasi: MEDIUM ROAST
-
-📊 Parameter:
-• Suhu awal: 185°C
-• Suhu first crack: 196-200°C
-• Drop temperature: 210-215°C
-• Durasi total: 12-14 menit
-• Development time: 18-22%
-
-💡 Alasan:
-${batch.variety} dari ${batch.origin} cocok untuk medium roast yang menonjolkan balance antara acidity dan body. Proses ${batch.process} memberikan sweetness yang baik pada level ini.
-
-⚡ Tips:
-• Pastikan first crack sempurna sebelum melanjutkan
-• Monitor warna biji secara visual
-• Cooling harus cepat untuk menghentikan proses roasting''';
-    } else {
-      return '''🔥 Profil Roasting Rekomendasi: MEDIUM-DARK ROAST
-
-📊 Parameter:
-• Suhu awal: 190°C
-• Suhu first crack: 196-200°C
-• Drop temperature: 220-225°C
-• Durasi total: 14-16 menit
-• Development time: 22-25%
-
-💡 Alasan:
-${batch.variety} dari ketinggian ${batch.elevationMasl.toInt()} mdpl akan lebih optimal pada roast level yang lebih gelap untuk menonjolkan body dan chocolate notes.
-
-⚡ Tips:
-• Perhatikan second crack — drop sebelum second crack berakhir
-• Roast ini cocok untuk espresso blend
-• Optimal untuk brewing method immersion (french press)''';
+    try {
+      final answer = await _llmService.askQuestion(question, batch: widget.batch);
+      setState(() {
+        _customAnswer = answer;
+        _isAskingCustom = false;
+      });
+    } catch (e) {
+      setState(() {
+        _customAnswer = 'Error: $e';
+        _isAskingCustom = false;
+      });
     }
-  }
-
-  String _generateCuppingNotes(BatchModel batch) {
-    final notes = <String>[];
-    final variety = batch.variety.toLowerCase();
-
-    if (variety.contains('gayo')) {
-      notes.addAll(['🌺 Aroma: Herbal, earthy, tobacco', '👅 Flavor: Cedar, dark chocolate, spice', '🍋 Acidity: Medium, juicy', '🍫 Body: Full, syrupy']);
-    } else if (variety.contains('toraja')) {
-      notes.addAll(['🌺 Aroma: Floral, fruity', '👅 Flavor: Stone fruit, brown sugar, vanilla', '🍋 Acidity: Bright, citric', '🍫 Body: Medium-full, creamy']);
-    } else if (variety.contains('kintamani')) {
-      notes.addAll(['🌺 Aroma: Citrus, jasmine', '👅 Flavor: Mandarin, honey, caramel', '🍋 Acidity: High, bright', '🍫 Body: Medium, clean']);
-    } else if (variety.contains('wamena')) {
-      notes.addAll(['🌺 Aroma: Sweet, floral', '👅 Flavor: Tropical fruit, vanilla, almond', '🍋 Acidity: High, complex', '🍫 Body: Medium, silky']);
-    } else if (variety.contains('flores')) {
-      notes.addAll(['🌺 Aroma: Earthy, spice', '👅 Flavor: Dark chocolate, nuts, molasses', '🍋 Acidity: Low-medium', '🍫 Body: Full, heavy']);
-    } else if (variety.contains('robusta')) {
-      notes.addAll(['🌺 Aroma: Earthy, woody', '👅 Flavor: Bitter chocolate, grain, rubber', '🍋 Acidity: Low', '🍫 Body: Very full, thick']);
-    } else {
-      notes.addAll(['🌺 Aroma: Sweet, nutty', '👅 Flavor: Chocolate, caramel, nuts', '🍋 Acidity: Medium', '🍫 Body: Medium-full']);
-    }
-
-    final score = batch.cuppingScore ?? 80;
-    notes.add('\n📈 Skor Cupping Prediksi: ${score.toStringAsFixed(1)} SCA');
-    notes.add('🏅 Grade: ${batch.gradeLabel}');
-    notes.add('\n☕ Best Brewing: ${score >= 85 ? "Pour Over (V60, Chemex)" : "Espresso, Moka Pot"}');
-
-    return notes.join('\n');
-  }
-
-  String _generateExportChecklist(BatchModel batch) {
-    final score = batch.cuppingScore ?? 0;
-    final moisture = batch.moistureContent ?? 0;
-
-    return '''📋 Checklist Kepatuhan Ekspor
-
-✅ Standar SNI (Badan Standarisasi Nasional):
-${score >= 80 ? '  ✓' : '  ✗'} Cupping Score ≥ 80 SCA — ${score.toStringAsFixed(1)} (${score >= 80 ? 'LULUS' : 'BELUM LULUS'})
-${moisture <= 12.5 ? '  ✓' : '  ✗'} Kadar Air ≤ 12.5% — ${moisture.toStringAsFixed(1)}% (${moisture <= 12.5 ? 'LULUS' : 'TERLALU TINGGI'})
-  ⬜ Bebas serangga hidup — Perlu inspeksi
-  ⬜ Ukuran biji sesuai grade — Perlu screening
-
-✅ Standar SCAA (Specialty Coffee Association):
-${score >= 85 ? '  ✓' : '  ⬜'} Specialty Grade (≥85 SCA)
-  ⬜ Maks 5 full defects per 350g sample
-  ⬜ No Category 1 defects (black, sour, fungus)
-  ⬜ Moisture 10-12%
-
-✅ Dokumen Ekspor:
-  ⬜ Surat Keterangan Asal (SKA)
-  ⬜ Phytosanitary Certificate
-  ⬜ ICO Certificate of Origin
-  ⬜ Bill of Lading
-  ⬜ Packing List & Invoice
-  ⬜ Fumigation Certificate
-
-📦 Status: ${batch.status == 'exported' ? 'SIAP EKSPOR ✅' : 'PROSES VERIFIKASI...'}''';
   }
 
   @override
@@ -200,6 +118,28 @@ ${score >= 85 ? '  ✓' : '  ⬜'} Specialty Grade (≥85 SCA)
                   if (widget.batch != null) _buildBatchHeader(),
                   const SizedBox(height: 16),
 
+                  // Error
+                  if (_error != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: AppColors.error, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(_error!, style: const TextStyle(fontSize: 12, color: AppColors.error)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
                   // Roasting Profile
                   if (_roastingAdvice != null) _buildAdvisoryCard(
                     '🔥 Rekomendasi Roasting',
@@ -227,6 +167,16 @@ ${score >= 85 ? '  ✓' : '  ⬜'} Specialty Grade (≥85 SCA)
                   // Custom Prompt
                   _buildCustomPrompt(),
                   const SizedBox(height: 16),
+
+                  // Custom Answer
+                  if (_customAnswer != null) ...[
+                    _buildAdvisoryCard(
+                      '💬 Jawaban Gemini',
+                      _customAnswer!,
+                      AppColors.accent,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
 
                   // Model Info
                   _buildModelInfo(),
@@ -263,7 +213,9 @@ ${score >= 85 ? '  ✓' : '  ⬜'} Specialty Grade (≥85 SCA)
           ),
           const SizedBox(height: 6),
           Text(
-            'Menghasilkan rekomendasi roasting, cupping notes,\ndan checklist kepatuhan ekspor',
+            _llmService.isApiConfigured
+                ? 'Mengirim data ke Gemini API...'
+                : 'Menghasilkan rekomendasi (mode offline)',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
@@ -318,7 +270,7 @@ ${score >= 85 ? '  ✓' : '  ⬜'} Specialty Grade (≥85 SCA)
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                '${batch.cuppingScore!.toStringAsFixed(1)}',
+                batch.cuppingScore!.toStringAsFixed(1),
                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.bgDark),
               ),
             ),
@@ -394,17 +346,14 @@ ${score >= 85 ? '  ✓' : '  ⬜'} Specialty Grade (≥85 SCA)
           ),
           const SizedBox(height: 10),
           ElevatedButton.icon(
-            onPressed: () {
-              // TODO: Implement actual Gemini API call
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Fitur Gemini API akan segera tersedia'),
-                  backgroundColor: AppColors.info,
-                ),
-              );
-            },
-            icon: const Icon(Icons.send_rounded, size: 18),
-            label: const Text('Kirim'),
+            onPressed: _isAskingCustom ? null : _askCustomQuestion,
+            icon: _isAskingCustom
+                ? const SizedBox(
+                    width: 18, height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.bgDark),
+                  )
+                : const Icon(Icons.send_rounded, size: 18),
+            label: Text(_isAskingCustom ? 'Mengirim...' : 'Kirim'),
             style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 44)),
           ),
         ],
@@ -413,20 +362,30 @@ ${score >= 85 ? '  ✓' : '  ⬜'} Specialty Grade (≥85 SCA)
   }
 
   Widget _buildModelInfo() {
+    final isConfigured = _llmService.isApiConfigured;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.bgSurface,
         borderRadius: BorderRadius.circular(10),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.info_outline, color: AppColors.textHint, size: 14),
-          SizedBox(width: 8),
+          Icon(
+            isConfigured ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
+            color: isConfigured ? AppColors.success : AppColors.textHint,
+            size: 14,
+          ),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Powered by Google Gemini 1.5 Flash API',
-              style: TextStyle(fontSize: 11, color: AppColors.textHint),
+              isConfigured
+                  ? 'Terhubung ke Google Gemini 1.5 Flash API'
+                  : 'Mode Offline — Atur API key di constants.dart untuk koneksi Gemini',
+              style: TextStyle(
+                fontSize: 11,
+                color: isConfigured ? AppColors.success : AppColors.textHint,
+              ),
             ),
           ),
         ],

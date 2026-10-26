@@ -17,8 +17,9 @@ import 'package:bean_origin/features/blockchain/presentation/blockchain_cert_scr
 import 'package:bean_origin/features/maps/presentation/map_screen.dart';
 import 'package:bean_origin/features/game/presentation/bean_sorter_game.dart';
 import 'package:bean_origin/features/batch/presentation/add_batch_screen.dart';
-
 class AppRouter {
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
   static const String splash = '/';
   static const String login = '/login';
   static const String register = '/register';
@@ -67,7 +68,8 @@ class AppRouter {
           settings,
         );
       case aiScanner:
-        return _slideRoute(const AiScannerScreen(), settings);
+        final batch = settings.arguments as BatchModel?;
+        return _slideRoute(AiScannerScreen(targetBatch: batch), settings);
       case llmAdvisor:
         final batch = settings.arguments as BatchModel?;
         return _slideRoute(LlmAdvisorScreen(batch: batch), settings);
@@ -97,8 +99,8 @@ class AppRouter {
   static PageRouteBuilder _fadeRoute(Widget page, RouteSettings settings) {
     return PageRouteBuilder(
       settings: settings,
-      pageBuilder: (_, __, ___) => page,
-      transitionsBuilder: (_, animation, __, child) {
+      pageBuilder: (context, anim, secAnim) => page,
+      transitionsBuilder: (context, animation, secAnim, child) {
         return FadeTransition(opacity: animation, child: child);
       },
       transitionDuration: const Duration(milliseconds: 400),
@@ -108,8 +110,8 @@ class AppRouter {
   static PageRouteBuilder _slideRoute(Widget page, RouteSettings settings) {
     return PageRouteBuilder(
       settings: settings,
-      pageBuilder: (_, __, ___) => page,
-      transitionsBuilder: (_, animation, __, child) {
+      pageBuilder: (context, anim, secAnim) => page,
+      transitionsBuilder: (context, animation, secAnim, child) {
         return SlideTransition(
           position: Tween<Offset>(
             begin: const Offset(1, 0),
@@ -133,12 +135,12 @@ class AuthNavigator extends StatelessWidget {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is AuthAuthenticated) {
-          Navigator.of(context).pushNamedAndRemoveUntil(
+          AppRouter.navigatorKey.currentState?.pushNamedAndRemoveUntil(
             AppRouter.main,
             (route) => false,
           );
         } else if (state is AuthUnauthenticated) {
-          Navigator.of(context).pushNamedAndRemoveUntil(
+          AppRouter.navigatorKey.currentState?.pushNamedAndRemoveUntil(
             AppRouter.login,
             (route) => false,
           );

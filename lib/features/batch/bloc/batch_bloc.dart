@@ -104,9 +104,7 @@ class BatchBloc extends Bloc<BatchEvent, BatchState> {
   }
 
   Future<void> _onLoadAll(BatchLoadAll event, Emitter<BatchState> emit) async {
-    emit(BatchLoading());
     try {
-      await Future.delayed(const Duration(milliseconds: 300));
       final batches = _repository.getAllBatches();
       emit(BatchLoaded(batches));
     } catch (e) {
@@ -115,9 +113,7 @@ class BatchBloc extends Bloc<BatchEvent, BatchState> {
   }
 
   Future<void> _onSearch(BatchSearch event, Emitter<BatchState> emit) async {
-    emit(BatchLoading());
     try {
-      await Future.delayed(const Duration(milliseconds: 200));
       final batches = _repository.searchBatches(
         query: event.query,
         variety: event.variety,

@@ -279,7 +279,7 @@ class _BatchListScreenState extends State<BatchListScreen> with SingleTickerProv
 
   Widget _buildDropdown(String label, String? value, List<String> items, ValueChanged<String?> onChanged) {
     return DropdownButtonFormField<String>(
-      value: value ?? '',
+      initialValue: value ?? '',
       dropdownColor: AppColors.bgCard,
       isExpanded: true,
       style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),

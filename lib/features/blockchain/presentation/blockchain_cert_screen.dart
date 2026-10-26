@@ -60,7 +60,7 @@ class _BlockchainCertScreenState extends State<BlockchainCertScreen>
     setState(() => _isVerifying = true);
     _verifyAnimController.repeat();
 
-    await Future.delayed(const Duration(milliseconds: 1200));
+    await Future.delayed(const Duration(milliseconds: 300));
 
     final blockValid = _blockchain.verifyBlock(_block);
     final chainResult = _blockchain.verifyChain();

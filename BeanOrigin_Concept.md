@@ -12,14 +12,14 @@
 
 ## 2. Peta Peran Pengguna (User Roles)
 
-| Role | Tugas Utama |
-|---|---|
-| 🌱 **Petani (Farmer)** | Mendaftarkan batch panen, input data kebun, geo-tag lokasi |
-| 🔬 **Q-Grader / Kurator Mutu** | Scan AI defect biji kopi, isi form cupping score, verifikasi batch |
-| 📦 **Eksportir** | Monitor logistik kontainer, sinkronisasi jam lelang London, transaksi |
-| 👤 **Admin** | Manajemen user, validasi akhir batch untuk ekspor |
+| Role | Tugas Utama | Implementasi RBAC |
+|---|---|---|
+| 🌱 **Petani (Farmer)** | Mendaftarkan batch panen, input data kebun, geo-tag lokasi GPS | Widget Cuaca, Tombol `+ Batch Baru` (FAB) aktif |
+| 🔬 **Q-Grader / Kurator Mutu** | Scan AI defect biji kopi, isi form cupping score, verifikasi batch | Meja Uji Kualitas, AI Scanner, Tombol Verifikasi Mutu aktif |
+| 📦 **Eksportir** | Monitor logistik kontainer, sinkronisasi jam lelang London, transaksi | Auction Clock London, Live Valas, Tombol Proses Ekspor aktif |
+| 👤 **Admin** | Manajemen user, audit blockchain ledger, pengawas suplai nasional | Akses penuh superuser ke seluruh modul |
 
-> **Pertanyaan Terbuka #1**: Apakah semua role ini perlu diimplementasi, atau cukup 2 role utama (misal: Petani + Eksportir) untuk scope tugas akhir?
+> **Status Implementasi Role**: Seluruh 4 peran pengguna telah **terimplementasi penuh** dengan hak akses dinamis (*Role-Based Access Control*) dan *Role-Adaptive Dashboard* di halaman utama.
 
 ---
 
@@ -108,20 +108,20 @@
 - **Library**: `flutter_local_notifications`
 
 ### ✅ 3.11 Autentikasi & Keamanan
-- **Login**: Email + Password (hash SHA-256 atau bcrypt di client sebelum kirim ke server)
-- **Session**: JWT disimpan di `flutter_secure_storage`
-- **Biometric**: Fingerprint / Face ID via `local_auth` (sebagai alternatif login setelah session aktif)
-- **Tanpa Firebase Auth** ✓
+- **Login**: Email + Password (hash SHA-256 di client sebelum diproses)
+- **Session**: JWT disimpan di `flutter_secure_storage` dengan masa berlaku **3 jam** (auto-logout jika expired)
+- **Biometric**: Fingerprint / Face ID via `local_auth` (otentikasi hardware native via `FlutterFragmentActivity`)
+- **Tanpa Firebase Auth** ✓ (Arsitektur custom auth mandiri)
 
 ### ✅ 3.12 Database
-- **Lokal**: Hive (NoSQL) — cache form inspeksi offline, blok blockchain lokal
-- **Online**: Supabase (PostgreSQL) — user, batch, blockchain ledger, market data
+- **Lokal**: Hive (NoSQL) — cache feedback saran, batch kopi offline, pengaturan, dan blok blockchain lokal
+- **Online**: Supabase (PostgreSQL BaaS) — sinkronisasi cloud data komoditas
 
 ### ✅ 3.13 Bottom Navigation
-1. 🏠 **Home / Batch Explorer** — dashboard + list batch + filter
-2. 👤 **Profil** — foto, data user, statistik batch
-3. 💬 **Saran & Kesan** — form feedback mata kuliah PaM
-4. 🚪 **Logout** — clear session + konfirmasi
+1. 🏠 **Home / Role Dashboard** — dashboard adaptif dinamis per-role (Petani/Q-Grader/Eksportir/Admin)
+2. 👤 **Profil** — ganti foto profil kamera/galeri, toggle status biometric, sertifikat blockchain, dan dialog info tugas akhir PaM
+3. 💬 **Saran & Masukan (Dual-Tab)** — Tab 1: Evaluasi Kuliah PaM (Rating, Kesan, Saran) & Tab 2: Forum Ekosistem Kopi (Dropdown kategori saran rantai pasok kopi + riwayat tersimpan di Hive)
+4. 🚪 **Logout** — pembersihan token sesi JWT dengan dialog konfirmasi keamanan
 
 ### ✅ 3.14 Plantation Weather Monitor (Open-Meteo API)
 - **API**: [Open-Meteo](https://open-meteo.com/) — free, tanpa API key, tanpa registrasi
@@ -245,26 +245,26 @@ Splash Screen
 
 ## 8. Checklist Kriteria Tugas Akhir
 
-- [ ] Konsep projek akhir ✓ (dokumen ini)
-- [ ] Login enkripsi (non-Firebase) + session (JWT)
-- [ ] Login biometric (Fingerprint via local_auth)
-- [ ] Database lokal (Hive) + online (Supabase)
-- [ ] Web service / API (Frankfurter, Open-Meteo, Gemini, Supabase REST) + LBS (OpenStreetMap)
-- [ ] Bottom navigation (Home, Profil, Saran & Kesan, Logout)
-- [ ] Konversi mata uang — IDR, USD, GBP, EUR (Frankfurter API)
-- [ ] Konversi waktu — WIB, WITA, WIT, London
-- [ ] Sensor Accelerometer (Cargo Shock Monitor)
-- [ ] Sensor Gyroscope (Slope Meter / Clinometer)
-- [ ] Sensor Biometric Fingerprint (login biometric)
-- [ ] Fitur AI — Computer Vision MobileNetV2/TFLite (Defect Classifier)
-- [ ] Fitur LLM — Gemini 1.5 Flash (Export & Roasting Advisory)
-- [ ] Mini game — BeanSorter Blitz (Flutter Canvas)
-- [ ] Pencarian & pemilihan (filter batch kopi)
-- [ ] Notifikasi mobile (flutter_local_notifications)
-- [ ] Blockchain sederhana (SHA-256 hash-chain + QR Code)
-- [ ] Plantation Weather Monitor (Open-Meteo API) ← *fitur tambahan*
+- [x] Konsep projek akhir ✓ (dokumen ini)
+- [x] Login enkripsi (non-Firebase) + session JWT 3 jam
+- [x] Login biometric (Fingerprint via local_auth)
+- [x] Database lokal (Hive) + online (Supabase)
+- [x] Web service / API (Frankfurter, Open-Meteo, Gemini) + LBS (OpenStreetMap & GPS)
+- [x] Bottom navigation (Home Adaptif, Profil Berfoto, Saran & Kesan Dual-Tab, Logout)
+- [x] Konversi mata uang — IDR, USD, GBP, EUR (Frankfurter API Live)
+- [x] Konversi waktu — WIB, WITA, WIT, London (Auction Clock ICE Futures)
+- [x] Sensor Accelerometer (Cargo Shock Monitor & Shake-to-Inspect)
+- [x] Sensor Gyroscope (Slope Meter / Clinometer Waterpass)
+- [x] Sensor Biometric Fingerprint (login biometric hardware)
+- [x] Fitur AI — Computer Vision Defect Classifier (6 kelas biji kopi cacat)
+- [x] Fitur LLM — Google Gemini 1.5 Flash (Roasting & Export Advisory)
+- [x] Mini game — BeanSorter Blitz (Flutter Canvas & responsive touch)
+- [x] Pencarian & pemilihan (filter varietas, asal, status dengan debounce)
+- [x] Notifikasi mobile (flutter_local_notifications — Auction alarm, kurs alert, batch status)
+- [x] Blockchain sederhana (SHA-256 immutable hash-chain + QR Code)
+- [x] Plantation Weather Monitor (Open-Meteo API) ← *fitur bonus terintegrasi GPS*
 
-**Status: 15/15 kriteria wajib terpetakan ✅ + 1 fitur bonus ✅**
+**Status: 100% SELESAI (15/15 kriteria wajib terimplementasi penuh ✅ + 1 fitur bonus live ✅)**
 
 ---
 

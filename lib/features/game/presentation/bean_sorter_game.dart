@@ -20,8 +20,11 @@ class _BeanSorterGameState extends State<BeanSorterGame> with TickerProviderStat
   int _combo = 0;
   int _maxCombo = 0;
   Timer? _spawnTimer;
-  Timer? _gameTimer;
-  int _timeLeft = 60;
+  Timer? _survivalTimer;
+  int _survivalSeconds = 0; // Stopwatch bertahan hidup
+
+  // Screen shake effect on penalty
+  bool _isShaking = false;
 
   // Beans & Popups
   final List<_FallingBean> _beans = [];
@@ -30,13 +33,14 @@ class _BeanSorterGameState extends State<BeanSorterGame> with TickerProviderStat
   late double _screenWidth;
   late double _screenHeight;
 
-  // Bean types with explicit labels and high-contrast indicators
+  // Bean types with explicit labels and special Golden Bean
   static const List<Map<String, dynamic>> _beanTypes = [
-    {'emoji': '🟤', 'name': 'Normal', 'isDefect': false, 'color': Color(0xFF4CAF50), 'label': 'BAGUS'},
-    {'emoji': '⚫', 'name': 'Black Bean', 'isDefect': true, 'color': Color(0xFFE53935), 'label': 'CACAT'},
-    {'emoji': '🟡', 'name': 'Sour Bean', 'isDefect': true, 'color': Color(0xFFFF9800), 'label': 'CACAT'},
-    {'emoji': '🔴', 'name': 'Broken Bean', 'isDefect': true, 'color': Color(0xFFE53935), 'label': 'CACAT'},
-    {'emoji': '🟢', 'name': 'Unripe Bean', 'isDefect': true, 'color': Color(0xFFFF5722), 'label': 'CACAT'},
+    {'emoji': '🟤', 'name': 'Normal', 'isDefect': false, 'isGolden': false, 'color': Color(0xFF4CAF50), 'label': 'BAGUS'},
+    {'emoji': '⚫', 'name': 'Black Bean', 'isDefect': true, 'isGolden': false, 'color': Color(0xFFE53935), 'label': 'CACAT'},
+    {'emoji': '🟡', 'name': 'Sour Bean', 'isDefect': true, 'isGolden': false, 'color': Color(0xFFFF9800), 'label': 'CACAT'},
+    {'emoji': '🔴', 'name': 'Broken Bean', 'isDefect': true, 'isGolden': false, 'color': Color(0xFFE53935), 'label': 'CACAT'},
+    {'emoji': '🟢', 'name': 'Unripe Bean', 'isDefect': true, 'isGolden': false, 'color': Color(0xFFFF5722), 'label': 'CACAT'},
+    {'emoji': '⭐', 'name': 'Golden Bean', 'isDefect': true, 'isGolden': true, 'color': Color(0xFFFFD700), 'label': 'EMAS!'},
   ];
 
   // Edukasi facts
@@ -53,7 +57,7 @@ class _BeanSorterGameState extends State<BeanSorterGame> with TickerProviderStat
   @override
   void dispose() {
     _spawnTimer?.cancel();
-    _gameTimer?.cancel();
+    _survivalTimer?.cancel();
     for (final bean in _beans) {
       bean.controller.dispose();
     }
@@ -72,7 +76,8 @@ class _BeanSorterGameState extends State<BeanSorterGame> with TickerProviderStat
       _level = 1;
       _combo = 0;
       _maxCombo = 0;
-      _timeLeft = 60;
+      _survivalSeconds = 0;
+      _isShaking = false;
       for (final bean in _beans) {
         bean.controller.dispose();
       }
@@ -83,8 +88,14 @@ class _BeanSorterGameState extends State<BeanSorterGame> with TickerProviderStat
       _popups.clear();
     });
 
-    // Spawn beans steadily (comfortable rhythm)
-    _spawnTimer = Timer.periodic(const Duration(milliseconds: 950), (timer) {
+    _startTimers();
+  }
+
+  void _startTimers() {
+    _spawnTimer?.cancel();
+    // Spawn rate scaling with level: 650ms at Lv1 down to 350ms at Lv5+
+    final spawnInterval = max(350, 680 - (_level * 60));
+    _spawnTimer = Timer.periodic(Duration(milliseconds: spawnInterval), (timer) {
       if (!_isPlaying) {
         timer.cancel();
         return;
@@ -92,19 +103,23 @@ class _BeanSorterGameState extends State<BeanSorterGame> with TickerProviderStat
       _spawnBean();
     });
 
-    // Countdown timer
-    _gameTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    // Stopwatch counter: survival timer
+    _survivalTimer?.cancel();
+    _survivalTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!_isPlaying) {
         timer.cancel();
         return;
       }
       setState(() {
-        _timeLeft--;
-        if (_timeLeft <= 0) {
-          _endGame();
+        _survivalSeconds++;
+        // Survival level up every 20 seconds
+        final newLevel = (_survivalSeconds ~/ 20) + 1;
+        if (newLevel != _level) {
+          _level = newLevel;
+          _showPopup(_screenWidth / 2 - 40, 160, '🔥 LEVEL $_level!', AppColors.warning);
+          // Re-adjust spawn timer for higher difficulty
+          _startTimers();
         }
-        // Level up every 15 seconds
-        _level = ((60 - _timeLeft) ~/ 15) + 1;
       });
     });
   }
@@ -112,28 +127,37 @@ class _BeanSorterGameState extends State<BeanSorterGame> with TickerProviderStat
   void _spawnBean() {
     if (!mounted) return;
 
-    // 50% chance of defect beans so players have plenty of action
-    final isDefect = _random.nextDouble() < 0.50;
-
+    // 5% chance of Golden Bean bonus, 55% defects, 40% normal beans
+    final roll = _random.nextDouble();
     Map<String, dynamic> beanType;
-    if (isDefect) {
-      final defects = _beanTypes.where((b) => b['isDefect'] == true).toList();
+    if (roll < 0.06) {
+      // Golden Bean
+      beanType = _beanTypes.firstWhere((b) => b['isGolden'] == true);
+    } else if (roll < 0.60) {
+      // Defect beans
+      final defects = _beanTypes.where((b) => b['isDefect'] == true && b['isGolden'] == false).toList();
       beanType = defects[_random.nextInt(defects.length)];
     } else {
+      // Normal bean
       beanType = _beanTypes.first;
     }
 
-    // Comfortable falling speed: 4600ms at Level 1, scaling smoothly down to 3000ms
-    final fallDuration = max(3000, 4600 - (_level * 250));
+    // Faster speed: 3200ms at Lv1 scaling down to 1600ms at high levels
+    final fallDuration = max(1600, 3200 - (_level * 280));
     final controller = AnimationController(
       vsync: this,
       duration: Duration(milliseconds: fallDuration),
     );
 
     final safeWidth = max(200.0, _screenWidth - 90.0);
+    final startX = 16 + _random.nextDouble() * safeWidth;
+    // Slight wobble offset (-15 to +15 px)
+    final wobble = (_random.nextDouble() - 0.5) * 30.0;
+
     final bean = _FallingBean(
       id: DateTime.now().microsecondsSinceEpoch + _random.nextInt(1000),
-      x: 16 + _random.nextDouble() * safeWidth,
+      x: startX,
+      wobbleOffset: wobble,
       beanType: beanType,
       controller: controller,
     );
@@ -142,14 +166,21 @@ class _BeanSorterGameState extends State<BeanSorterGame> with TickerProviderStat
       if (status == AnimationStatus.completed && mounted) {
         // Bean reached bottom conveyor
         setState(() {
-          if (!bean.beanType['isDefect']) {
+          final isDefect = bean.beanType['isDefect'] as bool;
+          final isGolden = bean.beanType['isGolden'] as bool;
+
+          if (!isDefect) {
             // Normal bean passed successfully into export conveyor!
             _score += 5;
             _showPopup(bean.x, _screenHeight - 150, '+5 ☕ Ekspor', AppColors.success);
+          } else if (isGolden) {
+            // Golden bean slipped away without penalty
+            _showPopup(bean.x, _screenHeight - 150, 'Biji Emas Lewat!', AppColors.textHint);
           } else {
-            // Defect bean contaminated the batch
+            // Defect bean contaminated the batch: LOSE A LIFE
             _lives--;
             _combo = 0;
+            _triggerScreenShake();
             _showPopup(bean.x, _screenHeight - 150, '-❤️ Cacat Lolos!', AppColors.error);
             if (_lives <= 0) _endGame();
           }
@@ -163,31 +194,46 @@ class _BeanSorterGameState extends State<BeanSorterGame> with TickerProviderStat
     controller.forward();
   }
 
+  void _triggerScreenShake() {
+    setState(() => _isShaking = true);
+    Future.delayed(const Duration(milliseconds: 250), () {
+      if (mounted) setState(() => _isShaking = false);
+    });
+  }
+
   void _tapBean(_FallingBean bean, double currentY) {
     if (!_isPlaying) return;
 
     final isDefect = bean.beanType['isDefect'] as bool;
+    final isGolden = bean.beanType['isGolden'] as bool;
 
     setState(() {
-      if (isDefect) {
+      if (isGolden) {
+        // Tapped Golden Bean! Super reward
+        _score += 50 * _level;
+        _combo += 2;
+        if (_combo > _maxCombo) _maxCombo = _combo;
+        _showPopup(bean.x, currentY, '+${50 * _level} ⭐ EMAS!', const Color(0xFFFFD700));
+      } else if (isDefect) {
         // Successfully tapped defect bean
         final points = (20 * _level) + (_combo * 4);
         _score += points;
         _combo++;
         if (_combo > _maxCombo) _maxCombo = _combo;
 
-        // Life recovery every 5 combo (up to max 5 lives)
-        if (_combo % 5 == 0 && _lives < 5) {
+        // Bonus life every 7 combo (up to max 5 lives)
+        if (_combo % 7 == 0 && _lives < 5) {
           _lives++;
           _showPopup(bean.x, currentY - 15, '+1 ❤️ Nyawa!', AppColors.success);
         } else {
           _showPopup(bean.x, currentY, '+$points 🎯', AppColors.accent);
         }
       } else {
-        // Accidental tap on normal bean: penalty on score & combo only, no life lost
-        _score = max(0, _score - 10);
+        // Accidental tap on normal bean: Penalty score, combo reset, and screen shake!
+        _score = max(0, _score - 15);
         _combo = 0;
-        _showPopup(bean.x, currentY, '-10 ⚠️ Kopi Baik!', AppColors.warning);
+        _triggerScreenShake();
+        _showPopup(bean.x, currentY, '-15 ⚠️ Kopi Baik!', AppColors.warning);
       }
       bean.controller.stop();
       _beans.removeWhere((b) => b.id == bean.id);
@@ -231,11 +277,17 @@ class _BeanSorterGameState extends State<BeanSorterGame> with TickerProviderStat
       _gameOver = true;
     });
     _spawnTimer?.cancel();
-    _gameTimer?.cancel();
+    _survivalTimer?.cancel();
     for (final bean in _beans) {
       bean.controller.dispose();
     }
     _beans.clear();
+  }
+
+  String _formatTime(int totalSeconds) {
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -245,7 +297,7 @@ class _BeanSorterGameState extends State<BeanSorterGame> with TickerProviderStat
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('BeanSorter Blitz'),
+        title: const Text('BeanSorter Blitz: Survival'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 20),
           onPressed: () => Navigator.of(context).pop(),
@@ -267,24 +319,24 @@ class _BeanSorterGameState extends State<BeanSorterGame> with TickerProviderStat
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text('🫘', style: TextStyle(fontSize: 72)),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             const Text(
-              'BeanSorter Blitz',
+              'BeanSorter: Survival',
               style: TextStyle(
-                fontSize: 28,
+                fontSize: 26,
                 fontWeight: FontWeight.w800,
                 color: AppColors.textPrimary,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             const Text(
-              'Sortir biji kopi cacat sebelum masuk kontainer ekspor!',
+              'Berapa lama Anda bisa bertahan menyortir kopi sebelum kehabisan nyawa?',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 24),
 
-            // Instructions
+            // Rules Card
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -295,31 +347,38 @@ class _BeanSorterGameState extends State<BeanSorterGame> with TickerProviderStat
               child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Cara Bermain:',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                  Row(
+                    children: [
+                      Icon(Icons.flash_on_rounded, color: AppColors.accent, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Aturan Mode Survival:',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                      ),
+                    ],
                   ),
                   SizedBox(height: 10),
                   Text(
-                    '• 🟤 Biji BAGUS (Hijau) → Biarkan lolos (+5 Poin)\n'
-                    '• ⚫🟡🔴🟢 Biji CACAT (Merah) → TAP untuk buang (+20 Poin)\n'
-                    '• ❤️ 5 Nyawa — berkurang HANYA jika biji cacat lolos!\n'
-                    '• ⚠️ Salah tap biji bagus hanya potong 10 poin (nyawa aman)\n'
-                    '• 🔥 Combo x5 dapat bonus +1 ❤️ Nyawa tambahan!\n'
-                    '• ⏱️ Durasi 60 detik — raih skor setinggi mungkin!',
-                    style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.6),
+                    '• 🟤 Biji BAGUS (Hijau) → JANGAN di-tap! Loloskan ke ekspor (+5 Poin)\n'
+                    '• ⚫🟡🔴🟢 Biji CACAT (Merah) → TAP SEGERA! (+20 Poin)\n'
+                    '• ⭐ Biji EMAS Langka → Tap untuk BONUS BESAR (+50 Poin)\n'
+                    '• ❤️ 5 Nyawa — berkurang HANYA jika biji cacat lolos ke bawah\n'
+                    '• ⚠️ Salah tap biji bagus: Skor berkurang & layar bergetar!\n'
+                    '• 🔥 Combo x7 berturut-turut memulihkan +1 ❤️ Nyawa!\n'
+                    '• 📈 Tanpa batas waktu! Semakin lama, kecepatan konveyor makin kencang!',
+                    style: TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.55),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 24),
 
             ElevatedButton.icon(
               onPressed: _startGame,
               icon: const Icon(Icons.play_arrow_rounded, size: 28),
-              label: const Text('MULAI MAIN', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              label: const Text('MULAI SURVIVAL', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
               style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 56),
+                minimumSize: const Size(double.infinity, 54),
               ),
             ),
           ],
@@ -329,276 +388,297 @@ class _BeanSorterGameState extends State<BeanSorterGame> with TickerProviderStat
   }
 
   Widget _buildGameScreen() {
-    return Stack(
-      children: [
-        // Game area background
-        Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFF140D05), Color(0xFF28170B)],
-            ),
-          ),
-        ),
-
-        // Conveyor belt lines
-        Positioned(
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: 68,
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.bgSurface,
-              border: Border(top: BorderSide(color: AppColors.accent.withValues(alpha: 0.4), width: 2.5)),
-            ),
-            child: Center(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.arrow_downward_rounded, size: 16, color: AppColors.accent),
-                  const SizedBox(width: 6),
-                  Text(
-                    'KONVEYOR EKSPOR SPESIALTI',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textSecondary.withValues(alpha: 0.7),
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  const Icon(Icons.arrow_downward_rounded, size: 16, color: AppColors.accent),
-                ],
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 60),
+      transform: _isShaking ? Matrix4.translationValues(5.0, 0.0, 0.0) : Matrix4.identity(),
+      child: Stack(
+        children: [
+          // Game area background
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF140D05), Color(0xFF28170B)],
               ),
             ),
           ),
-        ),
 
-        // Falling beans with enlarged touch hitbox and distinct badges
-        ..._beans.map((bean) {
-          return AnimatedBuilder(
-            animation: bean.controller,
-            builder: (context, _) {
-              final y = bean.controller.value * (_screenHeight - 190);
-              final isDefect = bean.beanType['isDefect'] as bool;
-              final badgeColor = isDefect ? AppColors.error : AppColors.success;
-              final badgeText = bean.beanType['label'] as String;
+          // Conveyor belt lines
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 68,
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.bgSurface,
+                border: Border(top: BorderSide(color: AppColors.accent.withValues(alpha: 0.4), width: 2.5)),
+              ),
+              child: Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.arrow_downward_rounded, size: 16, color: AppColors.accent),
+                    const SizedBox(width: 6),
+                    Text(
+                      'KONVEYOR EKSPOR SPESIALTI',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textSecondary.withValues(alpha: 0.7),
+                        letterSpacing: 2,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.arrow_downward_rounded, size: 16, color: AppColors.accent),
+                  ],
+                ),
+              ),
+            ),
+          ),
 
-              return Positioned(
-                left: bean.x,
-                top: y,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => _tapBean(bean, y),
-                  child: Container(
-                    // Enlarged 74x80 hitbox for easy, forgiving tapping
-                    width: 74,
-                    height: 80,
-                    alignment: Alignment.center,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 52,
-                          height: 52,
-                          decoration: BoxDecoration(
-                            color: (bean.beanType['color'] as Color).withValues(alpha: 0.25),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isDefect ? AppColors.error : AppColors.accent,
-                              width: 2.5,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: (isDefect ? AppColors.error : AppColors.accent).withValues(alpha: 0.35),
-                                blurRadius: 8,
-                                spreadRadius: 1,
+          // Falling beans
+          ..._beans.map((bean) {
+            return AnimatedBuilder(
+              animation: bean.controller,
+              builder: (context, _) {
+                final progress = bean.controller.value;
+                final y = progress * (_screenHeight - 190);
+                // Slight horizontal drift oscillation
+                final wobbleX = sin(progress * pi * 3) * bean.wobbleOffset;
+                final actualX = (bean.x + wobbleX).clamp(10.0, _screenWidth - 80.0);
+
+                final isDefect = bean.beanType['isDefect'] as bool;
+                final isGolden = bean.beanType['isGolden'] as bool;
+                final badgeColor = isGolden
+                    ? const Color(0xFFFFD700)
+                    : isDefect
+                        ? AppColors.error
+                        : AppColors.success;
+                final badgeText = bean.beanType['label'] as String;
+
+                return Positioned(
+                  left: actualX,
+                  top: y,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _tapBean(bean, y),
+                    child: Container(
+                      width: 74,
+                      height: 80,
+                      alignment: Alignment.center,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              color: isGolden
+                                  ? const Color(0xFFFFD700).withValues(alpha: 0.3)
+                                  : (bean.beanType['color'] as Color).withValues(alpha: 0.25),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isGolden ? const Color(0xFFFFD700) : (isDefect ? AppColors.error : AppColors.accent),
+                                width: isGolden ? 3.0 : 2.5,
                               ),
-                            ],
-                          ),
-                          child: Center(
-                            child: Text(
-                              bean.beanType['emoji'] as String,
-                              style: const TextStyle(fontSize: 26),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (isGolden
+                                          ? const Color(0xFFFFD700)
+                                          : isDefect
+                                              ? AppColors.error
+                                              : AppColors.accent)
+                                      .withValues(alpha: isGolden ? 0.6 : 0.35),
+                                  blurRadius: isGolden ? 12 : 8,
+                                  spreadRadius: isGolden ? 2 : 1,
+                                ),
+                              ],
                             ),
+                            child: Center(
+                              child: Text(
+                                bean.beanType['emoji'] as String,
+                                style: TextStyle(fontSize: isGolden ? 30 : 26),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: badgeColor,
+                              borderRadius: BorderRadius.circular(6),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: badgeColor.withValues(alpha: 0.4),
+                                  blurRadius: 4,
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              badgeText,
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w900,
+                                color: isGolden ? Colors.black : Colors.white,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+          }),
+
+          // Floating score/penalty popups
+          ..._popups.map((popup) {
+            return AnimatedBuilder(
+              animation: popup.controller,
+              builder: (context, _) {
+                final floatOffset = popup.controller.value * 35.0;
+                final opacity = (1.0 - popup.controller.value).clamp(0.0, 1.0);
+                return Positioned(
+                  left: popup.x,
+                  top: popup.y - floatOffset,
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: opacity,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.bgDark.withValues(alpha: 0.85),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: popup.color.withValues(alpha: 0.7), width: 1.5),
+                        ),
+                        child: Text(
+                          popup.text,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                            color: popup.color,
                           ),
                         ),
-                        const SizedBox(height: 3),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: badgeColor,
-                            borderRadius: BorderRadius.circular(6),
-                            boxShadow: [
-                              BoxShadow(
-                                color: badgeColor.withValues(alpha: 0.4),
-                                blurRadius: 4,
-                              ),
-                            ],
-                          ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+          }),
+
+          // HUD - Top Bar
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              decoration: BoxDecoration(
+                color: AppColors.bgDark.withValues(alpha: 0.92),
+                border: const Border(bottom: BorderSide(color: Color(0xFF3D2E22))),
+              ),
+              child: SafeArea(
+                bottom: false,
+                child: Row(
+                  children: [
+                    // Lives (5 Hearts)
+                    Row(
+                      children: List.generate(5, (i) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 2),
                           child: Text(
-                            badgeText,
-                            style: const TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                              letterSpacing: 0.5,
-                            ),
+                            i < _lives ? '❤️' : '🖤',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        );
+                      }),
+                    ),
+                    const Spacer(),
+                    // Score
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                      decoration: BoxDecoration(
+                        gradient: AppColors.accentGradient,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '$_score',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.bgDark,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    // Survival Stopwatch
+                    Row(
+                      children: [
+                        const Icon(Icons.timer_outlined, color: AppColors.accent, size: 18),
+                        const SizedBox(width: 4),
+                        Text(
+                          _formatTime(_survivalSeconds),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                            fontFamily: 'monospace',
                           ),
                         ),
                       ],
                     ),
-                  ),
+                  ],
                 ),
-              );
-            },
-          );
-        }),
-
-        // Floating score/penalty popups
-        ..._popups.map((popup) {
-          return AnimatedBuilder(
-            animation: popup.controller,
-            builder: (context, _) {
-              final floatOffset = popup.controller.value * 35.0;
-              final opacity = (1.0 - popup.controller.value).clamp(0.0, 1.0);
-              return Positioned(
-                left: popup.x,
-                top: popup.y - floatOffset,
-                child: IgnorePointer(
-                  child: Opacity(
-                    opacity: opacity,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppColors.bgDark.withValues(alpha: 0.85),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: popup.color.withValues(alpha: 0.7), width: 1.5),
-                      ),
-                      child: Text(
-                        popup.text,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                          color: popup.color,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          );
-        }),
-
-        // HUD - Top
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            decoration: BoxDecoration(
-              color: AppColors.bgDark.withValues(alpha: 0.92),
-              border: const Border(bottom: BorderSide(color: Color(0xFF3D2E22))),
-            ),
-            child: SafeArea(
-              bottom: false,
-              child: Row(
-                children: [
-                  // Lives (5 Hearts)
-                  Row(
-                    children: List.generate(5, (i) {
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 2),
-                        child: Text(
-                          i < _lives ? '❤️' : '🖤',
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                      );
-                    }),
-                  ),
-                  const Spacer(),
-                  // Score
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                    decoration: BoxDecoration(
-                      gradient: AppColors.accentGradient,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '$_score',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.bgDark,
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  // Timer
-                  Row(
-                    children: [
-                      Icon(Icons.timer_rounded, color: _timeLeft <= 10 ? AppColors.error : AppColors.textSecondary, size: 18),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${_timeLeft}s',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: _timeLeft <= 10 ? AppColors.error : AppColors.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
               ),
             ),
           ),
-        ),
 
-        // Combo indicator
-        if (_combo >= 2)
+          // Combo indicator
+          if (_combo >= 2)
+            Positioned(
+              top: 90,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withValues(alpha: 0.95),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '🔥 x$_combo',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.bgDark,
+                  ),
+                ),
+              ),
+            ),
+
+          // Level indicator
           Positioned(
             top: 90,
-            right: 16,
+            left: 16,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: AppColors.warning.withValues(alpha: 0.95),
+                color: AppColors.info.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.info.withValues(alpha: 0.4)),
               ),
               child: Text(
-                '🔥 x$_combo',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.bgDark,
-                ),
+                'Lv.$_level',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.info),
               ),
             ),
           ),
-
-        // Level indicator
-        Positioned(
-          top: 90,
-          left: 16,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: AppColors.info.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.info.withValues(alpha: 0.4)),
-            ),
-            child: Text(
-              'Lv.$_level',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.info),
-            ),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -617,7 +697,12 @@ class _BeanSorterGameState extends State<BeanSorterGame> with TickerProviderStat
               'Game Over!',
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
+            Text(
+              'Anda bertahan selama ${_formatTime(_survivalSeconds)}',
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.accent),
+            ),
+            const SizedBox(height: 20),
 
             // Stats
             Container(
@@ -631,7 +716,9 @@ class _BeanSorterGameState extends State<BeanSorterGame> with TickerProviderStat
                 children: [
                   _buildStatRow('📊 Skor Akhir', '$_score'),
                   const Divider(color: Color(0xFF3D2E22), height: 16),
-                  _buildStatRow('📈 Level Tercapai', '$_level'),
+                  _buildStatRow('⏱️ Waktu Bertahan', _formatTime(_survivalSeconds)),
+                  const Divider(color: Color(0xFF3D2E22), height: 16),
+                  _buildStatRow('📈 Level Tertinggi', 'Lv.$_level'),
                   const Divider(color: Color(0xFF3D2E22), height: 16),
                   _buildStatRow('🔥 Combo Tertinggi', 'x$_maxCombo'),
                 ],
@@ -673,7 +760,7 @@ class _BeanSorterGameState extends State<BeanSorterGame> with TickerProviderStat
             ElevatedButton.icon(
               onPressed: _startGame,
               icon: const Icon(Icons.replay_rounded),
-              label: const Text('Main Lagi'),
+              label: const Text('Coba Lagi'),
               style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 52)),
             ),
             const SizedBox(height: 10),
@@ -695,7 +782,7 @@ class _BeanSorterGameState extends State<BeanSorterGame> with TickerProviderStat
         Text(label, style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
         Text(
           value,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.accent),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.accent),
         ),
       ],
     );
@@ -705,12 +792,14 @@ class _BeanSorterGameState extends State<BeanSorterGame> with TickerProviderStat
 class _FallingBean {
   final int id;
   final double x;
+  final double wobbleOffset;
   final Map<String, dynamic> beanType;
   final AnimationController controller;
 
   _FallingBean({
     required this.id,
     required this.x,
+    required this.wobbleOffset,
     required this.beanType,
     required this.controller,
   });

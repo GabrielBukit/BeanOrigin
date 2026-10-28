@@ -353,10 +353,10 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                     _InfoItem(Icons.science_outlined, 'Proses', _batch.process),
                     _InfoItem(Icons.person_outline, 'Petani', _batch.farmerName),
                     if (_batch.slopeAngle != null)
-                      _InfoItem(Icons.landscape_rounded, 'Kemiringan Lahan (Gyro)', '${_batch.slopeAngle!.toStringAsFixed(1)}°'),
+                      _InfoItem(Icons.landscape_rounded, 'Kemiringan Lahan (Gyro)', '${_batch.slopeAngle?.toStringAsFixed(1) ?? '0.0'}°'),
                     if (_batch.latitude != null && _batch.longitude != null)
                       _InfoItem(Icons.my_location_rounded, 'Koordinat GPS',
-                          '${_batch.latitude!.toStringAsFixed(4)}, ${_batch.longitude!.toStringAsFixed(4)}'),
+                          '${_batch.latitude?.toStringAsFixed(4) ?? '0.0'}, ${_batch.longitude?.toStringAsFixed(4) ?? '0.0'}'),
                   ]),
                   const SizedBox(height: 20),
 
@@ -365,12 +365,12 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                   const SizedBox(height: 10),
                   _buildInfoCard([
                     if (_batch.cuppingScore != null)
-                      _InfoItem(Icons.star_rounded, 'Cupping Score', '${_batch.cuppingScore!.toStringAsFixed(1)} SCA'),
+                      _InfoItem(Icons.star_rounded, 'Cupping Score', '${_batch.cuppingScore?.toStringAsFixed(1) ?? '-'} SCA'),
                     _InfoItem(Icons.grade_rounded, 'Grade Mutu', _batch.gradeLabel),
                     if (_batch.moistureContent != null)
-                      _InfoItem(Icons.water_drop_outlined, 'Kadar Air', '${_batch.moistureContent!.toStringAsFixed(1)}%'),
+                      _InfoItem(Icons.water_drop_outlined, 'Kadar Air', '${_batch.moistureContent?.toStringAsFixed(1) ?? '0.0'}%'),
                     if (_batch.weightKg != null)
-                      _InfoItem(Icons.scale_rounded, 'Berat Total', '${_batch.weightKg!.toStringAsFixed(0)} kg'),
+                      _InfoItem(Icons.scale_rounded, 'Berat Total', '${_batch.weightKg?.toStringAsFixed(0) ?? '0'} kg'),
                   ]),
                   const SizedBox(height: 20),
 
@@ -393,7 +393,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                         border: Border.all(color: const Color(0xFF3D2E22)),
                       ),
                       child: Text(
-                        _batch.notes!,
+                        _batch.notes ?? '',
                         style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.5),
                       ),
                     ),
@@ -442,31 +442,22 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                       Text(
                         isQGrader
                             ? 'Verifikasi batch & masukkan skor cupping SCA'
-                            : 'Khusus hak akses Q-Grader / Kurator Mutu',
+                            : 'Verifikasi mutu SCA (Hak Akses Q-Grader)',
                         style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                       ),
                     ],
                   ),
                 ),
                 ElevatedButton(
-                  onPressed: isQGrader
-                      ? _showCuppingVerificationDialog
-                      : () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Akses Dibatasi: Hanya Q-Grader/Admin yang dapat menilai cupping score.'),
-                              backgroundColor: AppColors.warning,
-                            ),
-                          );
-                        },
+                  onPressed: _showCuppingVerificationDialog,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isQGrader ? AppColors.warning : AppColors.bgSurface,
-                    foregroundColor: isQGrader ? Colors.black : AppColors.textHint,
+                    backgroundColor: AppColors.warning,
+                    foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
-                  child: Text(
-                    isQGrader ? 'Kurasi Mutu' : 'Terkunci 🔒',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  child: const Text(
+                    'Kurasi Mutu',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                   ),
                 ),
               ],
@@ -495,31 +486,22 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                       Text(
                         isExporter
                             ? 'Batch memenuhi standar ekspor komoditas'
-                            : 'Khusus hak akses Eksportir / Perusahaan Dagang',
+                            : 'Proses pengapalan komoditas (Hak Akses Eksportir)',
                         style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                       ),
                     ],
                   ),
                 ),
                 ElevatedButton(
-                  onPressed: isExporter
-                      ? _showExportDialog
-                      : () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Akses Dibatasi: Hanya Eksportir/Admin yang dapat memproses kontainer ekspor.'),
-                              backgroundColor: AppColors.info,
-                            ),
-                          );
-                        },
+                  onPressed: _showExportDialog,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isExporter ? AppColors.info : AppColors.bgSurface,
-                    foregroundColor: isExporter ? Colors.white : AppColors.textHint,
+                    backgroundColor: AppColors.info,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
-                  child: Text(
-                    isExporter ? 'Proses Ekspor' : 'Terkunci 🔒',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  child: const Text(
+                    'Proses Ekspor',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                   ),
                 ),
               ],
@@ -589,7 +571,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
         Expanded(
           child: _buildMetricTile(
             'Cupping Score',
-            _batch.cuppingScore != null ? _batch.cuppingScore!.toStringAsFixed(1) : '—',
+            _batch.cuppingScore?.toStringAsFixed(1) ?? '—',
             'SCA Standard',
             Icons.star_rounded,
             AppColors.accent,
@@ -609,7 +591,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
         Expanded(
           child: _buildMetricTile(
             'Kadar Air',
-            _batch.moistureContent != null ? '${_batch.moistureContent!.toStringAsFixed(1)}%' : '—',
+            _batch.moistureContent != null ? '${_batch.moistureContent?.toStringAsFixed(1) ?? '0.0'}%' : '—',
             'Target 10-12%',
             Icons.water_drop_outlined,
             AppColors.success,

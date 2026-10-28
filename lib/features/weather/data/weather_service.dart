@@ -24,12 +24,12 @@ class CurrentWeather {
 
   factory CurrentWeather.fromJson(Map<String, dynamic> json) {
     return CurrentWeather(
-      temperature: (json['temperature_2m'] as num).toDouble(),
-      humidity: (json['relative_humidity_2m'] as num).toInt(),
-      precipitation: (json['precipitation'] as num).toDouble(),
-      rain: (json['rain'] as num).toDouble(),
-      weatherCode: (json['weather_code'] as num).toInt(),
-      windSpeed: (json['wind_speed_10m'] as num).toDouble(),
+      temperature: (json['temperature_2m'] as num?)?.toDouble() ?? 0.0,
+      humidity: (json['relative_humidity_2m'] as num?)?.toInt() ?? 0,
+      precipitation: (json['precipitation'] as num?)?.toDouble() ?? 0.0,
+      rain: (json['rain'] as num?)?.toDouble() ?? 0.0,
+      weatherCode: (json['weather_code'] as num?)?.toInt() ?? 0,
+      windSpeed: (json['wind_speed_10m'] as num?)?.toDouble() ?? 0.0,
       fetchedAt: DateTime.now(),
     );
   }
@@ -180,10 +180,12 @@ class WeatherService {
 
     // Check cache
     if (!forceRefresh && _cache.containsKey(cacheKey)) {
-      final cached = _cache[cacheKey]!;
-      final age = DateTime.now().difference(cached.current.fetchedAt);
-      if (age < _cacheExpiry) {
-        return cached;
+      final cached = _cache[cacheKey];
+      if (cached != null) {
+        final age = DateTime.now().difference(cached.current.fetchedAt);
+        if (age < _cacheExpiry) {
+          return cached;
+        }
       }
     }
 
@@ -216,11 +218,11 @@ class WeatherService {
           dates.length,
           (i) => DailyForecast(
             date: DateTime.parse(dates[i]),
-            tempMax: (maxTemps[i] as num).toDouble(),
-            tempMin: (minTemps[i] as num).toDouble(),
-            precipitation: (precip[i] as num).toDouble(),
-            precipProbability: (precipProb[i] as num).toInt(),
-            weatherCode: (codes[i] as num).toInt(),
+            tempMax: (maxTemps[i] as num?)?.toDouble() ?? 0.0,
+            tempMin: (minTemps[i] as num?)?.toDouble() ?? 0.0,
+            precipitation: (precip[i] as num?)?.toDouble() ?? 0.0,
+            precipProbability: (precipProb[i] as num?)?.toInt() ?? 0,
+            weatherCode: (codes[i] as num?)?.toInt() ?? 0,
           ),
         );
 

@@ -379,77 +379,82 @@ class _BlockchainCertScreenState extends State<BlockchainCertScreen>
         ),
         if (_isVerified && _chainResult != null) ...[
           const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: _chainResult!.isValid
-                  ? AppColors.success.withValues(alpha: 0.1)
-                  : AppColors.error.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: _chainResult!.isValid
-                    ? AppColors.success.withValues(alpha: 0.3)
-                    : AppColors.error.withValues(alpha: 0.3),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  _chainResult!.isValid ? Icons.check_circle_rounded : Icons.error_rounded,
-                  color: _chainResult!.isValid ? AppColors.success : AppColors.error,
-                  size: 20,
+          Builder(
+            builder: (context) {
+              final result = _chainResult!;
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: result.isValid
+                      ? AppColors.success.withValues(alpha: 0.1)
+                      : AppColors.error.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: result.isValid
+                        ? AppColors.success.withValues(alpha: 0.3)
+                        : AppColors.error.withValues(alpha: 0.3),
+                  ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _chainResult!.message,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: _chainResult!.isValid ? AppColors.success : AppColors.error,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (_chainResult!.isValid) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          'Integritas data batch terjamin. Tidak ada modifikasi terdeteksi.',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: AppColors.success.withValues(alpha: 0.7),
+                child: Row(
+                  children: [
+                    Icon(
+                      result.isValid ? Icons.check_circle_rounded : Icons.error_rounded,
+                      color: result.isValid ? AppColors.success : AppColors.error,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            result.message,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: result.isValid ? AppColors.success : AppColors.error,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
+                          if (result.isValid) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              'Integritas data batch terjamin. Tidak ada modifikasi terdeteksi.',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppColors.success.withValues(alpha: 0.7),
+                              ),
+                            ),
                       ],
                     ],
                   ),
                 ),
               ],
             ),
-          ),
-        ] else if (!_isVerified && _chainResult != null) ...[
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.error.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+          );
+        },
+      ),
+    ] else if (!_isVerified && _chainResult != null) ...[
+      const SizedBox(height: 10),
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.error.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                _chainResult?.message ?? 'Verifikasi gagal',
+                style: const TextStyle(fontSize: 12, color: AppColors.error, fontWeight: FontWeight.w600),
+              ),
             ),
-            child: Row(
-              children: [
-                Icon(Icons.error_outline, color: AppColors.error, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _chainResult!.message,
-                    style: const TextStyle(fontSize: 12, color: AppColors.error, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          ],
+        ),
+      ),
         ],
       ],
     );

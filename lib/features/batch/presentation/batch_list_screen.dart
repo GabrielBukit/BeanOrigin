@@ -398,6 +398,7 @@ class _BatchCardState extends State<_BatchCard> with SingleTickerProviderStateMi
       child: SlideTransition(
         position: _slideAnim,
         child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: widget.onTap,
           child: Container(
             margin: const EdgeInsets.only(bottom: 10),
@@ -439,14 +440,18 @@ class _BatchCardState extends State<_BatchCard> with SingleTickerProviderStateMi
                           const SizedBox(height: 2),
                           Row(
                             children: [
-                              Icon(Icons.location_on_outlined, size: 12, color: AppColors.textHint),
+                              const Icon(Icons.location_on_outlined, size: 12, color: AppColors.textHint),
                               const SizedBox(width: 3),
-                              Text(
-                                batch.origin,
-                                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                              Flexible(
+                                child: Text(
+                                  batch.origin,
+                                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
                               ),
-                              const SizedBox(width: 8),
-                              Icon(Icons.terrain_rounded, size: 12, color: AppColors.textHint),
+                              const SizedBox(width: 6),
+                              const Icon(Icons.terrain_rounded, size: 12, color: AppColors.textHint),
                               const SizedBox(width: 3),
                               Text(
                                 '${batch.elevationMasl.toInt()} mdpl',
@@ -491,7 +496,7 @@ class _BatchCardState extends State<_BatchCard> with SingleTickerProviderStateMi
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          '${batch.cuppingScore!.toStringAsFixed(1)} SCA',
+                          '${batch.cuppingScore?.toStringAsFixed(1) ?? '-'} SCA',
                           style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -516,7 +521,15 @@ class _BatchCardState extends State<_BatchCard> with SingleTickerProviderStateMi
       children: [
         Text(emoji, style: const TextStyle(fontSize: 12)),
         const SizedBox(width: 3),
-        Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textHint)),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 130),
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 11, color: AppColors.textHint),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+        ),
       ],
     );
   }

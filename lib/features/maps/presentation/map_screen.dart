@@ -112,8 +112,10 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final center = widget.focusLat != null && widget.focusLon != null
-        ? LatLng(widget.focusLat!, widget.focusLon!)
+    final focusLat = widget.focusLat;
+    final focusLon = widget.focusLon;
+    final center = focusLat != null && focusLon != null
+        ? LatLng(focusLat, focusLon)
         : const LatLng(-2.5, 118.0); // Center of Indonesia
 
     return Scaffold(
@@ -162,8 +164,10 @@ class _MapScreenState extends State<MapScreen> {
               // Polyline layer for logistics routes from plantation to port
               if (_showRoutes)
                 PolylineLayer(
-                  polylines: _batches.map((batch) {
-                    final batchPos = LatLng(batch.latitude!, batch.longitude!);
+                  polylines: _batches
+                      .where((b) => b.latitude != null && b.longitude != null)
+                      .map((batch) {
+                    final batchPos = LatLng(batch.latitude ?? 0.0, batch.longitude ?? 0.0);
                     final port = _findNearestPort(batchPos);
                     final isSelected = _selectedBatch?.id == batch.id;
                     final isExported = batch.status == 'exported';
@@ -184,12 +188,14 @@ class _MapScreenState extends State<MapScreen> {
               MarkerLayer(
                 markers: [
                   // Coffee origin markers
-                  ..._batches.map((batch) {
+                  ..._batches
+                      .where((b) => b.latitude != null && b.longitude != null)
+                      .map((batch) {
                     final color = _getStatusColor(batch.status);
                     final isSelected = _selectedBatch?.id == batch.id;
 
                     return Marker(
-                      point: LatLng(batch.latitude!, batch.longitude!),
+                      point: LatLng(batch.latitude ?? 0.0, batch.longitude ?? 0.0),
                       width: isSelected ? 48 : 38,
                       height: isSelected ? 48 : 38,
                       child: GestureDetector(
@@ -329,9 +335,10 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Widget _buildSelectedBatchCard() {
-    final batch = _selectedBatch!;
+    final batch = _selectedBatch;
+    if (batch == null) return const SizedBox.shrink();
     final statusColor = _getStatusColor(batch.status);
-    final batchPos = LatLng(batch.latitude!, batch.longitude!);
+    final batchPos = LatLng(batch.latitude ?? 0.0, batch.longitude ?? 0.0);
     final nearestPort = _findNearestPort(batchPos);
     final distanceKm = _calculateDistanceKm(batchPos, nearestPort.position);
 
@@ -398,7 +405,7 @@ class _MapScreenState extends State<MapScreen> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        '${batch.cuppingScore!.toStringAsFixed(1)} SCA',
+                        '${batch.cuppingScore?.toStringAsFixed(1) ?? '-'} SCA',
                         style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.bgDark),
                       ),
                     ),

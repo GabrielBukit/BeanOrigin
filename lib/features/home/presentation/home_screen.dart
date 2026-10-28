@@ -10,6 +10,9 @@ import 'package:bean_origin/core/router/app_router.dart';
 import 'package:bean_origin/features/auth/bloc/auth_bloc.dart';
 import 'package:bean_origin/features/batch/data/batch_repository.dart';
 import 'package:bean_origin/core/notifications/notification_service.dart';
+import 'package:bean_origin/shared/models/batch_model.dart';
+import 'package:bean_origin/features/batch/bloc/batch_bloc.dart';
+import 'package:bean_origin/features/blockchain/data/blockchain_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -671,6 +674,205 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _showCuppingDialog(BatchModel batch) {
+    final scoreController = TextEditingController(text: (batch.cuppingScore ?? 85.0).toStringAsFixed(1));
+    final notesController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.bgCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.verified_outlined, color: AppColors.success),
+            SizedBox(width: 8),
+            Text('Verifikasi Mutu & Cupping', style: TextStyle(color: AppColors.textPrimary, fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Batch: ${batch.variety} (${batch.origin})',
+              style: const TextStyle(color: AppColors.accent, fontSize: 13, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: scoreController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: const InputDecoration(
+                labelText: 'Cupping Score (SCA: 0-100)',
+                hintText: 'Misal: 87.5',
+                prefixIcon: Icon(Icons.star_rounded, color: AppColors.accent),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: notesController,
+              maxLines: 2,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: const InputDecoration(
+                labelText: 'Catatan Rasa / Cupping Notes',
+                hintText: 'Misal: Floral, jasmine, sweet finish...',
+                prefixIcon: Icon(Icons.notes_rounded, color: AppColors.accent),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final score = double.tryParse(scoreController.text) ?? 85.0;
+              final updated = batch.copyWith(
+                status: 'verified',
+                cuppingScore: score,
+                verifiedAt: DateTime.now(),
+                notes: notesController.text.isNotEmpty
+                    ? '${batch.notes ?? ""}\n[Q-Grader Note]: ${notesController.text}'.trim()
+                    : batch.notes,
+              );
+
+              // Update in repository & bloc
+              BatchRepository().updateBatch(updated);
+              context.read<BatchBloc>().add(BatchUpdate(updated));
+
+              // Record to Blockchain
+              await BlockchainService().addBlock(updated);
+
+              // Notification
+              await NotificationService().showBatchStatusNotification(
+                batchId: updated.id,
+                variety: updated.variety,
+                newStatus: 'verified',
+              );
+
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (mounted) {
+                setState(() {});
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('✅ Batch ${updated.variety} diverifikasi (${score.toStringAsFixed(1)} SCA) & dicatat ke Blockchain!'),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+              }
+            },
+            child: const Text('Verifikasi & Simpan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showExportDialog(BatchModel batch) {
+    String selectedPort = 'Pelabuhan Belawan';
+    final containerController = TextEditingController(text: 'CONT-ID-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setDialogState) => AlertDialog(
+          backgroundColor: AppColors.bgCard,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.local_shipping_rounded, color: AppColors.info),
+              SizedBox(width: 8),
+              Text('Proses Ekspor Kontainer', style: TextStyle(color: AppColors.textPrimary, fontSize: 16)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Batch: ${batch.variety} (${batch.origin})',
+                style: const TextStyle(color: AppColors.accent, fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: containerController,
+                style: const TextStyle(color: AppColors.textPrimary),
+                decoration: const InputDecoration(
+                  labelText: 'Nomor Segel Kontainer',
+                  prefixIcon: Icon(Icons.qr_code_2_rounded, color: AppColors.accent),
+                ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: selectedPort,
+                dropdownColor: AppColors.bgCard,
+                style: const TextStyle(color: AppColors.textPrimary),
+                decoration: const InputDecoration(
+                  labelText: 'Pelabuhan Keberangkatan',
+                  prefixIcon: Icon(Icons.directions_boat_rounded, color: AppColors.accent),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'Pelabuhan Belawan', child: Text('Belawan (Sumatera Utara)')),
+                  DropdownMenuItem(value: 'Pelabuhan Panjang', child: Text('Panjang (Lampung)')),
+                  DropdownMenuItem(value: 'Pelabuhan Tanjung Priok', child: Text('Tanjung Priok (Jakarta)')),
+                  DropdownMenuItem(value: 'Pelabuhan Tanjung Perak', child: Text('Tanjung Perak (Surabaya)')),
+                  DropdownMenuItem(value: 'Pelabuhan Benoa', child: Text('Benoa (Bali)')),
+                  DropdownMenuItem(value: 'Pelabuhan Makassar', child: Text('Makassar (Sulawesi)')),
+                ],
+                onChanged: (val) {
+                  if (val != null) setDialogState(() => selectedPort = val);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Batal', style: TextStyle(color: AppColors.textSecondary)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final updated = batch.copyWith(
+                  status: 'exported',
+                  exportedAt: DateTime.now(),
+                  notes: '${batch.notes ?? ""}\n[Ekspor]: Kontainer ${containerController.text} via $selectedPort'.trim(),
+                );
+
+                BatchRepository().updateBatch(updated);
+                context.read<BatchBloc>().add(BatchUpdate(updated));
+
+                // Blockchain ledger event
+                await BlockchainService().addBlock(updated);
+
+                // Notification
+                await NotificationService().showBatchStatusNotification(
+                  batchId: updated.id,
+                  variety: updated.variety,
+                  newStatus: 'exported',
+                );
+
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (mounted) {
+                  setState(() {});
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('🚢 Batch ${updated.variety} siap berlayar via $selectedPort!'),
+                      backgroundColor: AppColors.info,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Konfirmasi Pengiriman'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildPendingBatchesForQGrader() {
     final pendingBatches = BatchRepository().getAllBatches().where((b) => b.status == 'pending').toList();
     if (pendingBatches.isEmpty) {
@@ -687,6 +889,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       children: pendingBatches.map((batch) {
         return GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: () => Navigator.of(context).pushNamed(AppRouter.batchDetail, arguments: batch),
           child: Container(
             margin: const EdgeInsets.only(bottom: 8),
@@ -709,10 +912,24 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: AppColors.warning, borderRadius: BorderRadius.circular(6)),
-                  child: const Text('Kurasi Mutu', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.black)),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _showCuppingDialog(batch),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.warning,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.warning.withValues(alpha: 0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Text('Kurasi Mutu', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.black)),
+                  ),
                 ),
               ],
             ),
@@ -738,6 +955,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       children: verifiedBatches.map((batch) {
         return GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: () => Navigator.of(context).pushNamed(AppRouter.batchDetail, arguments: batch),
           child: Container(
             margin: const EdgeInsets.only(bottom: 8),
@@ -761,10 +979,24 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: AppColors.info, borderRadius: BorderRadius.circular(6)),
-                  child: const Text('Kirim Kapal', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _showExportDialog(batch),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.info,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.info.withValues(alpha: 0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Text('Kirim Kapal', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+                  ),
                 ),
               ],
             ),
@@ -1140,6 +1372,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ? AppColors.info
                 : AppColors.warning;
         return GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: () => Navigator.of(context).pushNamed(AppRouter.batchDetail, arguments: batch),
           child: Container(
             margin: const EdgeInsets.only(bottom: 10),
@@ -1183,7 +1416,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     if (batch.cuppingScore != null)
                       Text(
-                        '${batch.cuppingScore!.toStringAsFixed(1)} SCA',
+                        '${batch.cuppingScore?.toStringAsFixed(1) ?? '-'} SCA',
                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.accent),
                       ),
                     const SizedBox(height: 4),

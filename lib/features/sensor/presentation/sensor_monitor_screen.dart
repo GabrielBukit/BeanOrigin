@@ -63,7 +63,8 @@ class _SensorMonitorScreenState extends State<SensorMonitorScreen> with SingleTi
         // Shake detection for random inspect
         if (_totalG > AppConstants.shakeThresholdG / 9.81) {
           final now = DateTime.now();
-          if (_lastShake == null || now.difference(_lastShake!) > const Duration(milliseconds: 500)) {
+          final last = _lastShake;
+          if (last == null || now.difference(last) > const Duration(milliseconds: 500)) {
             _shakeCount++;
             _lastShake = now;
             if (_shakeCount >= 3) {

@@ -166,8 +166,8 @@ class _BeanSorterGameState extends State<BeanSorterGame> with TickerProviderStat
       if (status == AnimationStatus.completed && mounted) {
         // Bean reached bottom conveyor
         setState(() {
-          final isDefect = bean.beanType['isDefect'] as bool;
-          final isGolden = bean.beanType['isGolden'] as bool;
+          final isDefect = (bean.beanType['isDefect'] as bool?) ?? false;
+          final isGolden = (bean.beanType['isGolden'] as bool?) ?? false;
 
           if (!isDefect) {
             // Normal bean passed successfully into export conveyor!
@@ -204,8 +204,8 @@ class _BeanSorterGameState extends State<BeanSorterGame> with TickerProviderStat
   void _tapBean(_FallingBean bean, double currentY) {
     if (!_isPlaying) return;
 
-    final isDefect = bean.beanType['isDefect'] as bool;
-    final isGolden = bean.beanType['isGolden'] as bool;
+    final isDefect = (bean.beanType['isDefect'] as bool?) ?? false;
+    final isGolden = (bean.beanType['isGolden'] as bool?) ?? false;
 
     setState(() {
       if (isGolden) {
@@ -449,14 +449,14 @@ class _BeanSorterGameState extends State<BeanSorterGame> with TickerProviderStat
                 final wobbleX = sin(progress * pi * 3) * bean.wobbleOffset;
                 final actualX = (bean.x + wobbleX).clamp(10.0, _screenWidth - 80.0);
 
-                final isDefect = bean.beanType['isDefect'] as bool;
-                final isGolden = bean.beanType['isGolden'] as bool;
+                final isDefect = (bean.beanType['isDefect'] as bool?) ?? false;
+                final isGolden = (bean.beanType['isGolden'] as bool?) ?? false;
                 final badgeColor = isGolden
                     ? const Color(0xFFFFD700)
                     : isDefect
                         ? AppColors.error
                         : AppColors.success;
-                final badgeText = bean.beanType['label'] as String;
+                final badgeText = (bean.beanType['label'] as String?) ?? '';
 
                 return Positioned(
                   left: actualX,

@@ -223,8 +223,10 @@ class _WeatherMonitorScreenState extends State<WeatherMonitorScreen> {
   }
 
   Widget _buildCurrentWeather() {
-    final temp = _currentWeather!['temperature_2m'];
-    final weatherCode = _currentWeather!['weather_code'] as int;
+    final weather = _currentWeather;
+    if (weather == null) return const SizedBox.shrink();
+    final temp = weather['temperature_2m'];
+    final weatherCode = (weather['weather_code'] as num?)?.toInt() ?? 0;
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -241,7 +243,7 @@ class _WeatherMonitorScreenState extends State<WeatherMonitorScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            '${temp is double ? temp.toStringAsFixed(1) : temp}°C',
+            '${temp is num ? temp.toStringAsFixed(1) : (temp?.toString() ?? '0.0')}°C',
             style: const TextStyle(
               fontSize: 44,
               fontWeight: FontWeight.w800,
@@ -262,10 +264,12 @@ class _WeatherMonitorScreenState extends State<WeatherMonitorScreen> {
   }
 
   Widget _buildWeatherMetrics() {
-    final humidity = _currentWeather!['relative_humidity_2m'];
-    final precip = _currentWeather!['precipitation'];
-    final rain = _currentWeather!['rain'];
-    final wind = _currentWeather!['wind_speed_10m'];
+    final weather = _currentWeather;
+    if (weather == null) return const SizedBox.shrink();
+    final humidity = weather['relative_humidity_2m'] ?? 0;
+    final precip = weather['precipitation'] ?? 0;
+    final rain = weather['rain'] ?? 0;
+    final wind = weather['wind_speed_10m'] ?? 0;
 
     return Row(
       children: [
@@ -310,7 +314,9 @@ class _WeatherMonitorScreenState extends State<WeatherMonitorScreen> {
   }
 
   Widget _buildRainAlert() {
-    final rain = (_currentWeather!['rain'] as num?) ?? 0;
+    final weather = _currentWeather;
+    if (weather == null) return const SizedBox.shrink();
+    final rain = (weather['rain'] as num?) ?? 0;
     // Check forecast for heavy rain
     bool heavyRainSoon = false;
     for (final day in _forecast.take(3)) {
@@ -485,10 +491,11 @@ class _WeatherMonitorScreenState extends State<WeatherMonitorScreen> {
   }
 
   Widget _buildAgronomyTips() {
-    if (_currentWeather == null) return const SizedBox.shrink();
+    final weather = _currentWeather;
+    if (weather == null) return const SizedBox.shrink();
 
-    final temp = (_currentWeather!['temperature_2m'] as num).toDouble();
-    final humidity = (_currentWeather!['relative_humidity_2m'] as num).toDouble();
+    final temp = (weather['temperature_2m'] as num?)?.toDouble() ?? 25.0;
+    final humidity = (weather['relative_humidity_2m'] as num?)?.toDouble() ?? 70.0;
 
     List<String> tips = [];
     if (temp > 30) tips.add('🌡️ Suhu tinggi — lakukan penjemuran pagi hari saja');

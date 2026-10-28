@@ -124,23 +124,25 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
   }
 
   void _applyResultsToBatch() {
-    if (_results == null) return;
+    final results = _results;
+    if (results == null) return;
 
-    final summary = _results!.entries.map((e) => '${e.key}: ${e.value}%').join(', ');
-    final normalPercent = _results!['Normal Bean'] ?? 75.0;
+    final summary = results.entries.map((e) => '${e.key}: ${e.value}%').join(', ');
+    final normalPercent = results['Normal Bean'] ?? 75.0;
     final estimatedScore = double.parse((70.0 + (normalPercent / 100.0) * 20.0).toStringAsFixed(1));
 
-    if (_currentBatch != null) {
-      final updated = _currentBatch!.copyWith(
+    final batch = _currentBatch;
+    if (batch != null) {
+      final updated = batch.copyWith(
         defectResult: summary,
-        cuppingScore: _currentBatch!.cuppingScore ?? estimatedScore,
+        cuppingScore: batch.cuppingScore ?? estimatedScore,
       );
       context.read<BatchBloc>().add(BatchUpdate(updated));
       setState(() => _currentBatch = updated);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('✅ Hasil scan AI disimpan ke batch ${_currentBatch!.id}!'),
+          content: Text('✅ Hasil scan AI disimpan ke batch ${updated.id}!'),
           backgroundColor: AppColors.success,
         ),
       );
@@ -232,7 +234,7 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Target Batch: ${_currentBatch!.id} (${_currentBatch!.variety})',
+                        'Target Batch: ${_currentBatch?.id ?? '-'} (${_currentBatch?.variety ?? '-'})',
                         style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.w600, fontSize: 13),
                       ),
                     ),
@@ -297,7 +299,7 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        Image.file(_imageFile!, fit: BoxFit.cover),
+                        Image.file(_imageFile as File, fit: BoxFit.cover),
                         if (_isAnalyzing)
                           Container(
                             color: AppColors.bgDark.withValues(alpha: 0.6),
@@ -400,7 +402,10 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
   }
 
   Widget _buildResults() {
-    final normalPercent = _results!['Normal Bean'] ?? 0;
+    final results = _results;
+    if (results == null) return const SizedBox.shrink();
+
+    final normalPercent = results['Normal Bean'] ?? 0;
     final qualityLabel = normalPercent >= 80
         ? 'Lolos Standar Ekspor'
         : normalPercent >= 65
@@ -463,7 +468,7 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
         ElevatedButton.icon(
           onPressed: _applyResultsToBatch,
           icon: const Icon(Icons.assignment_turned_in_rounded, size: 20),
-          label: Text(_currentBatch != null ? 'Terapkan ke Batch ${_currentBatch!.id}' : 'Simpan ke Form Inspeksi Batch'),
+          label: Text(_currentBatch != null ? 'Terapkan ke Batch ${_currentBatch?.id ?? ''}' : 'Simpan ke Form Inspeksi Batch'),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.success,
             foregroundColor: Colors.white,
@@ -478,7 +483,7 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
         ),
         const SizedBox(height: 10),
-        ..._results!.entries.map((entry) {
+        ...results.entries.map((entry) {
           final icon = _defectIcons[entry.key] ?? Icons.help_outline;
           final color = _defectColors[entry.key] ?? AppColors.textHint;
           return Container(

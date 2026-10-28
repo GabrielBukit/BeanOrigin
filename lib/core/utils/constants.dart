@@ -47,15 +47,21 @@ class AppConstants {
   static const List<String> coffeeOrigins = [
     'Aceh Tengah',
     'Aceh Barat',
-    'Temanggung',
-    'Toraja',
-    'Kintamani',
-    'Wamena',
-    'Flores Bajawa',
+    'Mandailing',
+    'Sidikalang',
+    'Kerinci',
     'Lampung',
-    'Dampit Malang',
+    'Gunung Puntang',
     'Garut',
     'Bandung',
+    'Temanggung',
+    'Dampit Malang',
+    'Ijen Raung',
+    'Kintamani',
+    'Flores Bajawa',
+    'Toraja',
+    'Enrekang Kalosi',
+    'Wamena',
   ];
 
   // Coffee Processes

@@ -20,7 +20,8 @@ class BlockchainService {
 
   /// Initialize the blockchain service, open Hive box, and load chain
   Future<void> initialize() async {
-    if (_blockBox != null && _blockBox!.isOpen) return;
+    final currentBox = _blockBox;
+    if (currentBox != null && currentBox.isOpen) return;
 
     _blockBox = await Hive.openBox<Map>(AppConstants.hiveBlockBox);
     await _loadChain();
@@ -30,16 +31,17 @@ class BlockchainService {
   Future<void> _loadChain() async {
     _chain.clear();
 
-    if (_blockBox == null || _blockBox!.isEmpty) {
+    final box = _blockBox;
+    if (box == null || box.isEmpty) {
       // Create genesis block
       final genesis = BlockModel.genesis();
       await _saveBlock(genesis);
       _chain.add(genesis);
     } else {
       // Load all blocks from Hive in order
-      final keys = _blockBox!.keys.toList()..sort();
+      final keys = box.keys.toList()..sort();
       for (final key in keys) {
-        final data = _blockBox!.get(key);
+        final data = box.get(key);
         if (data != null) {
           try {
             final block = BlockModel.fromJson(Map<String, dynamic>.from(data));

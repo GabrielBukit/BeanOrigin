@@ -124,7 +124,7 @@ class _MarketPriceScreenState extends State<MarketPriceScreen> with SingleTicker
             if (_lastUpdated != null)
               Center(
                 child: Text(
-                  'Terakhir diperbarui: ${DateFormat('dd MMM yyyy, HH:mm').format(_lastUpdated!)}',
+                  'Terakhir diperbarui: ${DateFormat('dd MMM yyyy, HH:mm').format(_lastUpdated as DateTime)}',
                   style: const TextStyle(fontSize: 11, color: AppColors.textHint),
                 ),
               ),

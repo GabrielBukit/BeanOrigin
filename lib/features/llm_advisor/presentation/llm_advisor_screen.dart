@@ -270,7 +270,7 @@ class _LlmAdvisorScreenState extends State<LlmAdvisorScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                batch.cuppingScore!.toStringAsFixed(1),
+                batch.cuppingScore?.toStringAsFixed(1) ?? '-',
                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.bgDark),
               ),
             ),

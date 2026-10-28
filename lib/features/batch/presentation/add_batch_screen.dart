@@ -24,11 +24,14 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
   final _latController = TextEditingController();
   final _lonController = TextEditingController();
   final _slopeController = TextEditingController();
+  final _customOriginController = TextEditingController();
 
   String _selectedVariety = AppConstants.coffeeVarieties.first;
   String _selectedOrigin = AppConstants.coffeeOrigins.first;
   String _selectedProcess = AppConstants.coffeeProcesses.first;
   bool _isLocating = false;
+
+  bool get _isCustomOrigin => _selectedOrigin == 'Lainnya (Ketik Manual)';
 
   @override
   void dispose() {
@@ -39,6 +42,7 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
     _latController.dispose();
     _lonController.dispose();
     _slopeController.dispose();
+    _customOriginController.dispose();
     super.dispose();
   }
 
@@ -129,6 +133,10 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
   void _submitBatch() {
     if (!_formKey.currentState!.validate()) return;
 
+    final effectiveOrigin = _isCustomOrigin
+        ? _customOriginController.text.trim()
+        : _selectedOrigin;
+
     final authState = context.read<AuthBloc>().state;
     String farmerId = 'user_001';
     String farmerName = 'Petani Kopi';
@@ -143,7 +151,7 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
       farmerId: farmerId,
       farmerName: farmerName,
       variety: _selectedVariety,
-      origin: _selectedOrigin,
+      origin: effectiveOrigin,
       process: _selectedProcess,
       elevationMasl: double.tryParse(_elevationController.text) ?? 0,
       moistureContent: double.tryParse(_moistureController.text),
@@ -200,9 +208,21 @@ class _AddBatchScreenState extends State<AddBatchScreen> {
               _buildDropdownField(
                 'Daerah Asal',
                 _selectedOrigin,
-                AppConstants.coffeeOrigins,
+                [...AppConstants.coffeeOrigins, 'Lainnya (Ketik Manual)'],
                 (v) => setState(() => _selectedOrigin = v!),
               ),
+              if (_isCustomOrigin) ...[
+                const SizedBox(height: 10),
+                _buildTextField(
+                  controller: _customOriginController,
+                  label: 'Ketik Nama Daerah / Kebun Sendiri',
+                  hint: 'Misal: Enrekang, Bondowoso, Sidikalang...',
+                  validator: (v) => _isCustomOrigin && (v == null || v.trim().isEmpty)
+                      ? 'Nama daerah wajib diisi'
+                      : null,
+                  icon: Icons.edit_location_alt_rounded,
+                ),
+              ],
               const SizedBox(height: 12),
 
               _buildDropdownField(

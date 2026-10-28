@@ -527,7 +527,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   gradient: _profileImage == null ? AppColors.accentGradient : null,
                   image: _profileImage != null
                       ? DecorationImage(
-                          image: FileImage(_profileImage!),
+                          image: FileImage(_profileImage as File),
                           fit: BoxFit.cover,
                         )
                       : null,

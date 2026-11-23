@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,6 +6,7 @@ import 'package:bean_origin/core/theme/app_theme.dart';
 import 'package:bean_origin/shared/models/batch_model.dart';
 import 'package:bean_origin/features/batch/bloc/batch_bloc.dart';
 import 'package:bean_origin/features/batch/data/batch_repository.dart';
+import 'package:bean_origin/features/ai_scanner/data/coffee_vision_service.dart';
 
 class AiScannerScreen extends StatefulWidget {
   final BatchModel? targetBatch;
@@ -20,21 +20,12 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
   File? _imageFile;
   bool _isAnalyzing = false;
   Map<String, double>? _results;
+  CoffeeScanResult? _scanResult;
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
   BatchModel? _currentBatch;
 
   final _picker = ImagePicker();
-
-  // Simulated defect classes
-  static const List<String> _defectClasses = [
-    'Normal Bean',
-    'Black Bean',
-    'Sour / Moldy',
-    'Broken / Chipped',
-    'Insect Damage',
-    'Unripe / Quaker',
-  ];
 
   static const Map<String, IconData> _defectIcons = {
     'Normal Bean': Icons.check_circle_rounded,
@@ -85,47 +76,32 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
   }
 
   Future<void> _analyzeImage() async {
-    setState(() => _isAnalyzing = true);
+    final file = _imageFile;
+    if (file == null) return;
+
+    setState(() {
+      _isAnalyzing = true;
+      _results = null;
+      _scanResult = null;
+    });
     _pulseController.repeat(reverse: true);
 
-    // Fast inference
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    // Generate simulated results
-    final random = Random();
-    final Map<String, double> results = {};
-    double remaining = 100.0;
-
-    // Normal bean gets the largest percentage
-    final normalPercent = 60.0 + random.nextDouble() * 28; // 60-88%
-    results['Normal Bean'] = double.parse(normalPercent.toStringAsFixed(1));
-    remaining -= results['Normal Bean']!;
-
-    // Distribute remaining among defects
-    final defects = _defectClasses.where((c) => c != 'Normal Bean').toList()..shuffle();
-    for (int i = 0; i < defects.length; i++) {
-      if (i == defects.length - 1) {
-        results[defects[i]] = double.parse(remaining.clamp(0.0, 100.0).toStringAsFixed(1));
-      } else {
-        final val = random.nextDouble() * remaining * 0.6;
-        results[defects[i]] = double.parse(val.toStringAsFixed(1));
-        remaining -= val;
-      }
-    }
+    // Jalankan Computer Vision Inspection (Memvalidasi foto kopi & menganalisis defect)
+    final result = await CoffeeVisionService().inspectImage(file);
 
     _pulseController.stop();
     _pulseController.reset();
+
     setState(() {
-      _results = Map.fromEntries(
-        results.entries.toList()..sort((a, b) => b.value.compareTo(a.value)),
-      );
+      _scanResult = result;
+      _results = result.isCoffee ? result.defectProportions : null;
       _isAnalyzing = false;
     });
   }
 
   void _applyResultsToBatch() {
     final results = _results;
-    if (results == null) return;
+    if (results == null || (_scanResult != null && !_scanResult!.isCoffee)) return;
 
     final summary = results.entries.map((e) => '${e.key}: ${e.value}%').join(', ');
     final normalPercent = results['Normal Bean'] ?? 75.0;
@@ -252,8 +228,13 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
             _buildCaptureButtons(),
             const SizedBox(height: 20),
 
-            // Results
-            if (_results != null) _buildResults(),
+            // Results: Non-Coffee Warning vs Coffee Inspection Results
+            if (_scanResult != null) ...[
+              if (!_scanResult!.isCoffee)
+                _buildNonCoffeeView(_scanResult!)
+              else
+                _buildCoffeeResults(_scanResult!),
+            ],
 
             // Model Info
             const SizedBox(height: 20),
@@ -279,10 +260,10 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
               border: Border.all(
                 color: _isAnalyzing
                     ? AppColors.accent
-                    : _results != null
-                        ? AppColors.success
+                    : _scanResult != null
+                        ? (_scanResult!.isCoffee ? AppColors.success : AppColors.error)
                         : const Color(0xFF3D2E22),
-                width: _isAnalyzing ? 2 : 1,
+                width: _isAnalyzing || _scanResult != null ? 2 : 1,
               ),
               boxShadow: _isAnalyzing
                   ? [
@@ -302,7 +283,7 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
                         Image.file(_imageFile as File, fit: BoxFit.cover),
                         if (_isAnalyzing)
                           Container(
-                            color: AppColors.bgDark.withValues(alpha: 0.6),
+                            color: AppColors.bgDark.withValues(alpha: 0.65),
                             child: const Center(
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
@@ -317,7 +298,7 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
                                   ),
                                   SizedBox(height: 16),
                                   Text(
-                                    'Menganalisis Biji Kopi via AI...',
+                                    'Memverifikasi & Menganalisis Biji Kopi...',
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontSize: 14,
@@ -326,7 +307,7 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
                                   ),
                                   SizedBox(height: 4),
                                   Text(
-                                    'MobileNetV2 Defect Classifier',
+                                    'AI Vision Defect Classifier',
                                     style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
                                   ),
                                 ],
@@ -401,25 +382,156 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildResults() {
-    final results = _results;
-    if (results == null) return const SizedBox.shrink();
+  Widget _buildNonCoffeeView(CoffeeScanResult result) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.error.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.no_photography_rounded, color: AppColors.error, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Bukan Biji Kopi!',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.error,
+                      ),
+                    ),
+                    Text(
+                      'Terdeteksi: ${result.objectType} (Keyakinan ${result.confidence}%)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.error.withValues(alpha: 0.9),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            result.message,
+            style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, height: 1.5),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.bgSurface,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF3D2E22)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.lightbulb_outline_rounded, color: AppColors.accent, size: 16),
+                    SizedBox(width: 6),
+                    Text(
+                      'Petunjuk Pengambilan Foto Biji Kopi:',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.accent),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  '1. Letakkan sampel biji kopi (green beans / roasted) di atas nampan atau kertas putih bersih.\n'
+                  '2. Posisikan kamera tegak lurus dari atas dengan jarak 15–20 cm.\n'
+                  '3. Pastikan pencahayaan terang dan biji tidak tertutup bayangan tebal.',
+                  style: TextStyle(fontSize: 11, color: AppColors.textSecondary, height: 1.5),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: () => _pickImage(ImageSource.camera),
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text('Ambil Ulang Foto Kopi'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.accent,
+              foregroundColor: AppColors.bgDark,
+              minimumSize: const Size(double.infinity, 44),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-    final normalPercent = results['Normal Bean'] ?? 0;
-    final qualityLabel = normalPercent >= 80
-        ? 'Lolos Standar Ekspor'
-        : normalPercent >= 65
-            ? 'Kualitas Domestik / Grade 2'
-            : 'Perlu Sortasi Ulang';
+  Widget _buildCoffeeResults(CoffeeScanResult result) {
+    final normalPercent = result.normalPercent;
     final qualityColor = normalPercent >= 80
         ? AppColors.success
-        : normalPercent >= 65
+        : normalPercent >= 68
             ? AppColors.warning
             : AppColors.error;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Verified Coffee Badge
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.success.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.verified_rounded, color: AppColors.success, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Terverifikasi: ${result.objectType} (Akurasi ${result.confidence}%)',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.success,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.bgSurface,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  result.isOnlineAnalysis ? 'Gemini Vision' : 'AI Offline Vision',
+                  style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
         // Overall Quality Card
         Container(
           padding: const EdgeInsets.all(16),
@@ -445,19 +557,52 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      qualityLabel,
+                      result.grade,
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: qualityColor,
                       ),
                     ),
+                    const SizedBox(height: 2),
                     Text(
-                      'Biji Normal: ${normalPercent.toStringAsFixed(1)}% | Cacat: ${(100 - normalPercent).toStringAsFixed(1)}%',
+                      'Biji Normal: ${normalPercent.toStringAsFixed(1)}% | Total Cacat: ${result.totalDefectPercent.toStringAsFixed(1)}%',
                       style: TextStyle(fontSize: 12, color: qualityColor.withValues(alpha: 0.9)),
                     ),
                   ],
                 ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Rekomendasi Kurasi Fisik
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.bgCard,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFF3D2E22)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.tips_and_updates_outlined, color: AppColors.accent, size: 16),
+                  SizedBox(width: 6),
+                  Text(
+                    'Rekomendasi Sortasi Fisik:',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.accent),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                result.recommendation,
+                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
               ),
             ],
           ),
@@ -475,15 +620,15 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
             minimumSize: const Size(double.infinity, 50),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
 
         // Detailed Results
         const Text(
-          'Proporsi Defect Biji Kopi',
+          'Proporsi Defect Biji Kopi (Standar SCA / SCAA)',
           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
         ),
         const SizedBox(height: 10),
-        ...results.entries.map((entry) {
+        ...result.defectProportions.entries.map((entry) {
           final icon = _defectIcons[entry.key] ?? Icons.help_outline;
           final color = _defectColors[entry.key] ?? AppColors.textHint;
           return Container(
@@ -505,7 +650,7 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
                   ),
                 ),
                 SizedBox(
-                  width: 100,
+                  width: 90,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
@@ -552,18 +697,18 @@ class _AiScannerScreenState extends State<AiScannerScreen> with SingleTickerProv
               Icon(Icons.memory_rounded, color: AppColors.accent, size: 16),
               SizedBox(width: 6),
               Text(
-                'Arsitektur Model AI Vision',
+                'Arsitektur Model AI Vision & Verifikasi Kopi',
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
               ),
             ],
           ),
           SizedBox(height: 8),
           Text(
-            '• Model: Transfer Learning MobileNetV2\n'
-            '• Runtime: TensorFlow Lite (TFLite)\n'
-            '• Resolusi Input: 224×224 RGB image\n'
-            '• Target Klasifikasi: 6 Kelas Cacat Standar SCAA\n'
-            '• Integrasi: Output defect % otomatis tercatat pada form kurasi batch',
+            '• Verifikasi Objek: Validasi otomatis spektrum warna & tekstur biji kopi asli\n'
+            '• Dual Engine: Gemini 1.5 Flash Multimodal Vision (Online) & Color/Texture Heuristic Classifier (Offline)\n'
+            '• Filter Non-Kopi: Menolak otomatis foto manusia, hewan, barang, atau dokumen non-kopi\n'
+            '• Klasifikasi Cacat: 6 Kategori Defect Standar SCA (Normal, Black, Sour, Broken, PBKo, Quaker)\n'
+            '• Integrasi: Output mutu fisik & defect % langsung tersimpan pada rekam jejak batch',
             style: TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.5),
           ),
         ],

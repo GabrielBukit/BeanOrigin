@@ -211,7 +211,6 @@ OUTPUT WAJIB: Berikan HANYA format JSON murni (tanpa tanda kutip markdown/tanpa 
       // Resize untuk sampling cepat dan konsisten (128x128)
       final resized = img.copyResize(decodedImage, width: 128, height: 128);
 
-      int totalPixels = 0;
       int coffeeGreenPixels = 0;
       int coffeeRoastedPixels = 0;
       int coffeeCherryPixels = 0;
@@ -223,7 +222,6 @@ OUTPUT WAJIB: Berikan HANYA format JSON murni (tanpa tanda kutip markdown/tanpa 
 
       for (int y = 0; y < resized.height; y += 2) {
         for (int x = 0; x < resized.width; x += 2) {
-          totalPixels++;
           final pixel = resized.getPixel(x, y);
           final r = pixel.r.toDouble();
           final g = pixel.g.toDouble();

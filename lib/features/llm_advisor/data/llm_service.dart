@@ -53,18 +53,25 @@ class LlmService {
     }
 
     try {
-      String prompt = question;
-      if (batch != null) {
-        prompt = '''Konteks batch kopi:
+      final prompt = '''Kamu adalah "BeanOrigin AI Coffee Specialist" — asisten kecerdasan buatan terkemuka yang ahli dan berdedikasi khusus dalam segala aspek dunia KOPI (agronomi budidaya kebun kopi, varietas kopi nusantara & dunia, pascapanen, fermentasi, roasting profile, teknik seduh / barista brewing, cupping & sensory Q-Grader, rantai pasok, pasar komoditas lelang, serta regulasi & ekspor kopi internasional seperti EUDR).
+
+ATURAN WAJIB & PALING UTAMA:
+1. Jawab pertanyaan pengguna dengan akurat, mendalam, praktis, dan ramah sesuai topik spesifik yang ditanyakan.
+2. FOKUS EKSKLUSIF KOPI: Jika pertanyaan pengguna TIDAK BERHUBUNGAN SAMA SEKALI dengan kopi (misal: politik, matematika murni, koding umum, resep masakan non-kopi, gosip selebriti, otomotif, dsb), kamu HARUS menolak dengan sopan dan ramah. Berikan alasan tegas bahwa kamu adalah asisten kecerdasan buatan khusus BeanOrigin yang fokus hanya pada ekosistem dan industri kopi. Lalu undang pengguna untuk mengajukan pertanyaan seputar kopi.
+3. Gunakan Bahasa Indonesia yang lugas, profesional, dan gunakan formatting Markdown (tebal, bullet points, emoji) yang rapi.
+
+${batch != null ? '''KONTEKS BATCH KOPI AKTIF:
 - Varietas: ${batch.variety}
-- Asal: ${batch.origin}
+- Asal Kebun: ${batch.origin}
 - Ketinggian: ${batch.elevationMasl.toInt()} mdpl
 - Proses: ${batch.process}
-- Cupping Score: ${batch.cuppingScore ?? 'belum dinilai'}
-- Kadar Air: ${batch.moistureContent ?? 'belum diukur'}%
+- Cupping Score: ${batch.cuppingScore != null ? '${batch.cuppingScore!.toStringAsFixed(1)} SCA' : 'Belum dinilai'}
+- Kadar Air: ${batch.moistureContent != null ? '${batch.moistureContent!.toStringAsFixed(1)}%' : 'Belum diukur'}
+- Status: ${batch.status}
+''' : ''}
+PERTANYAAN PENGGUNA:
+"$question"''';
 
-Pertanyaan: $question''';
-      }
       return await _callGemini(prompt);
     } catch (e) {
       return _generateLocalAnswer(question, batch);
@@ -312,108 +319,240 @@ ${score >= 85 ? '  ✓' : '  ⬜'} Specialty Grade (≥85 SCA)
   }
 
   String _generateLocalAnswer(String question, BatchModel? batch) {
-    final q = question.toLowerCase();
+    final q = question.toLowerCase().trim();
 
-    // 1. Roasting
-    if (q.contains('roast') || q.contains('sangrai') || q.contains('crack')) {
-      return '''🔥 Rekomendasi Roasting (Mode Offline Cerdas):
-• Profil Roasting: Kopi dataran tinggi (>1300 mdpl) seperti ${batch?.variety ?? 'Arabika'} memiliki densitas biji tinggi, ideal untuk Light-to-Medium Roast guna menonjolkan keasaman cerah (bright acidity) dan floral/fruity notes.
-• First Crack: Terjadi pada rentang 196°C - 200°C. Jangan terburu-buru menaikkan panas agar inti biji matang merata.
-• Drop Temperature: Untuk Specialty V60/Manual Brew, turunkan (drop) di suhu 203°C - 208°C (development time 15-18%).
-• Untuk Espresso Blend: Gunakan Medium-Dark Roast (drop 218°C - 224°C) untuk memaksimalkan body dan crema.''';
+    // 1. Sapaan Umum
+    final greetings = ['halo', 'hai', 'hi', 'hello', 'assalam', 'pagi', 'siang', 'sore', 'malam', 'siapa kamu', 'siapa anda'];
+    if (greetings.any((g) => q.startsWith(g) || q == g)) {
+      return '''☕ Halo! Saya adalah Asisten AI Khusus Kopi dari BeanOrigin.
+
+Saya siap membantu menjawab segala hal seputar dunia kopi:
+🌱 Agronomi & Budidaya: Petik merah, bibit, pohon naungan, pupuk, & hama PBKo
+⚗️ Pascapanen & Fermentasi: Full Washed, Natural, Honey, Anaerobic, & Giling Basah
+☀️ Penjemuran & Sensor: Kontrol kadar air (moisture 10-12%) & pencegahan jamur
+🔥 Roasting Profile: Panduan Light, Medium, Dark Roast, First & Second Crack
+☕ Cupping & Seduh: Protokol SCA, Sensory notes, Rasio seduh V60 & Espresso
+📋 Pasar & Ekspor: Jam lelang bursa London/NY & regulasi anti-deforestasi EUDR
+
+Silakan ajukan pertanyaan seputar kopi, saya siap membantu! ☕''';
     }
 
-    // 2. Ekspor & Regulasi EUDR
-    if (q.contains('ekspor') || q.contains('export') || q.contains('eudr') || q.contains('syarat')) {
-      return '''📋 Regulasi & Checklist Ekspor Kopi:
-1. Mutu Fisik & Cupping:
-   • Grade Specialty: Cupping score minimal 80.0 SCA.
-   • Batas Kadar Air: 10.0% – 12.0% (Maksimal 12.5% sesuai SNI 01-2907-2008).
-   • Cacat Primer (Category 1): 0 defects per 350 gram sampel.
+    // 2. Daftar Kata Kunci Dunia Kopi
+    final coffeeKeywords = [
+      'kopi', 'coffee', 'ceri', 'cherry', 'bean', 'biji', 'roast', 'sangrai',
+      'cupping', 'brew', 'seduh', 'barista', 'v60', 'espresso', 'aeropress',
+      'french press', 'tubruk', 'cappuccino', 'latte', 'cold brew', 'giling',
+      'grind', 'grinder', 'arabika', 'arabica', 'robusta', 'liberika', 'excelsa',
+      'gayo', 'toraja', 'mandailing', 'kintamani', 'wamena', 'bajawa', 'sidikalang',
+      'temanggung', 'lampung', 'dampit', 'preanger', 'panen', 'petik', 'kebun',
+      'tanam', 'bibit', 'pascapanen', 'ferment', 'washed', 'natural', 'honey',
+      'giling basah', 'anaerob', 'aerob', 'maceration', 'jemur', 'drying',
+      'kadar air', 'moisture', 'defect', 'cacat', 'pbko', 'karat daun', 'jamur',
+      'huller', 'pulper', 'ekspor', 'export', 'eudr', 'ico', 'ska', 'sni', 'sca',
+      'scaa', 'q-grader', 'acidity', 'body', 'aftertaste', 'flavor', 'aroma',
+      'fragrance', 'bursa', 'lelang', 'london', 'new york', 'ice', 'pasar',
+      'harga', 'kafein', 'caffeine', 'crema', 'rasio', 'suhu air', 'kalita',
+      'chemex', 'moka pot', 'syphon', 'sweetness', 'pahit', 'asam', 'sepet',
+      'astringent', 'over-extraction', 'under-extraction', 'blooming', 'densitas'
+    ];
 
-2. Regulasi Anti-Deforestasi Uni Eropa (EUDR):
-   • Geolocation Polygon: Setiap petak kebun petani wajib memiliki rekaman koordinat poligon GPS.
-   • Bukti Lahan Bebas Deforestasi sejak cut-off date 31 Desember 2020.
-   • Due Diligence Statement (DDS) yang diunggah ke portal TRACES EU.
+    final isCoffeeRelated = coffeeKeywords.any((kw) => q.contains(kw));
 
-3. Dokumen Legalitas Internasional:
-   • Surat Keterangan Asal (SKA / Form ICO) dari Disperindag.
-   • Phytosanitary Certificate dari Badan Karantina Pertanian.
-   • Bill of Lading (B/L) & Fumigation Certificate.''';
+    // 3. TOLAK JIKA BUKAN TENTANG KOPI (Permintaan Pengguna: Fokus Eksklusif Kopi)
+    if (!isCoffeeRelated) {
+      return '''Mohon maaf, saya adalah Asisten AI BeanOrigin yang berdedikasi dan fokus KHUSUS pada dunia KOPI ☕.
+
+Saya tidak dapat menjawab pertanyaan di luar topik kopi karena keahlian saya dirancang khusus untuk agronomi kebun kopi, pascapanen, teknik roasting, uji cita rasa (cupping), metode seduh barista, serta perdagangan dan regulasi ekspor kopi.
+
+💡 Anda dapat menanyakan topik kopi seperti:
+• "Bagaimana rasio, suhu, dan teknik seduh V60 yang benar?"
+• "Apa perbedaan karakteristik rasa Arabika Gayo dan Toraja?"
+• "Bagaimana cara melakukan fermentasi kopi anaerobik?"
+• "Kapan waktu yang tepat menurunkan biji saat first crack?"
+• "Apa saja syarat ekspor kopi ke Eropa sesuai regulasi EUDR?"
+
+Ada yang bisa saya bantu terkait budidaya, seduh, atau bisnis kopi Anda? ☕''';
     }
 
-    // 3. Panen & Perawatan
-    if (q.contains('panen') || q.contains('petik') || q.contains('rawat') || q.contains('pupuk') || q.contains('kebun')) {
-      return '''🌱 Panduan Panen & Pemeliharaan Kebun Kopi:
-• Petik Merah Optimal: Hanya petik buah ceri yang 95-100% merah matang sempurna (kadar gula/Brix mencapai 18-22%). Hindari ceri hijau (menimbulkan rasa astrigent/sepet).
-• Floating Sortir Air: Rendam ceri panen dalam bak air; buang buah yang mengapung (floater) karena menandakan biji kopong atau diserang hama PBKo.
-• Pemangkasan (Pruning): Lakukan pemangkasan cabang air dan cabang tua setelah panen besar selesai guna memicu pertumbuhan cabang produktif baru.
-• Naungan (Shade Trees): Pertahankan pohon pelindung (seperti lamtoro atau sengon) dengan rasio tutupan 30-40% untuk menjaga mikroklimat tanah.''';
+    // 4. JAWABAN MENDALAM SEPUTAR KOPI SESUAI TOPIK PERTANYAAN:
+
+    // A. Teknik Seduh & Brewing Barista (V60, Espresso, French Press, Rasio, Grind Size)
+    if (q.contains('seduh') || q.contains('brew') || q.contains('v60') || q.contains('espresso') ||
+        q.contains('tubruk') || q.contains('aeropress') || q.contains('barista') ||
+        q.contains('rasio') || q.contains('giling') || q.contains('grind')) {
+      return '''☕ Panduan Teknik Seduh & Brewing Kopi:
+1. Manual Brew V60 (Filter Coffee):
+   • Rasio: 1:15 hingga 1:16 (Contoh: 15 gram kopi untuk 225 - 240 ml air).
+   • Suhu Air: 90°C – 93°C (Gunakan 92°C untuk biji Light-Medium roast).
+   • Gilingan (Grind Size): Medium-Fine (seperti garam meja kasar).
+   • Teknik Tuang:
+     - Tuangan 1 (Blooming): 40-50 ml air, tunggu 30-45 detik agar gas CO2 terlepas.
+     - Tuangan 2 & 3: Tuang perlahan secara melingkar dari tengah ke luar, hindari menuang langsung ke kertas filter.
+     - Total Waktu Ekstraksi: 2 menit 30 detik – 3 menit.
+
+2. Espresso Extraction:
+   • Dose: 18 – 20 gram bubuk halus (fine grind).
+   • Yield: 36 – 40 gram cairan espresso (rasio 1:2).
+   • Waktu Ekstraksi: 25 – 30 detik pada tekanan 9 bar dan suhu 92°C – 94°C.
+   • Ciri Ideal: Crema berwarna hazelnut kemerahan tebal dengan rasa seimbang antara body, acidity, dan sweetness.
+
+3. Kopi Tubruk Tradisional:
+   • Rasio 1:12 atau 1:14, air mendidih 95°C, aduk perlahan di menit ke-2, biarkan bubuk mengendap sempurna pada menit ke-4 sebelum diminum.''';
     }
 
-    // 4. Fermentasi & Pascapanen
-    if (q.contains('ferment') || q.contains('proses') || q.contains('washed') || q.contains('natural') || q.contains('honey') || q.contains('anaerob')) {
-      return '''⚗️ Manajemen Fermentasi Pascapanen:
-• Full Washed: Kupas kulit (depulping), fermentasi basah 24-36 jam hingga lendir (mucilage) terurai sempurna. Bilas dengan air bersih mengalir.
-• Honey Process: Kupas kulit, jemur langsung bersama getah lendirnya. Menghasilkan rasa manis karamel dan body yang tebal.
-• Natural Process: Jemur buah utuh langsung di atas raised bed. Butuh pembalikan 2-3 jam sekali untuk mencegah pembusukan jamur.
-• Anaerobic Fermentation: Masukkan ceri ke dalam tangki kedap udara dengan one-way airlock valve selama 48-96 jam. Jaga suhu fermentasi di bawah 22°C dan pantau pH hingga mencapai 4.0 - 4.2.''';
+    // B. Roasting / Sangrai (Light, Medium, Dark, First Crack)
+    if (q.contains('roast') || q.contains('sangrai') || q.contains('crack') || q.contains('ror')) {
+      final variety = batch?.variety ?? 'Arabika Specialty';
+      final elevation = batch?.elevationMasl.toInt() ?? 1400;
+      return '''🔥 Panduan Roasting Kopi ($variety - $elevation mdpl):
+• Karakter Biji: Kopi dataran tinggi memiliki densitas sel biji yang padat, membutuhkan transfer panas yang terukur agar matang hingga inti.
+• Profil Pilihan:
+  1. Light Roast (Cinnamon / New England):
+     - Suhu Drop: 202°C – 206°C (segera setelah First Crack reda).
+     - Karakter: Sangat kaya aroma floral, keasaman buah (fruity acidity), rasa manis alami, dan tea-like body. Paling ideal untuk V60 Specialty.
+  2. Medium Roast (City / Full City):
+     - Suhu Drop: 210°C – 216°C.
+     - Karakter: Keseimbangan sempurna antara body, aroma karamel cokelat, dan acidity lembut. Sangat versatile untuk filter maupun espresso.
+  3. Dark Roast (French / Italian):
+     - Suhu Drop: 222°C – 226°C (memasuki awal Second Crack).
+     - Karakter: Acidity hilang, body tebal pekat, aroma smokey dan dark cocoa. Cocok untuk kopi susu kental manis atau blend komersial.
+• Tips Penting: Jangan biarkan laju kenaikan suhu (Rate of Rise / RoR) mengalami *crash* atau *flick* menjelang first crack agar tidak terjadi rasa baked (roti panggang hambar).''';
     }
 
-    // 5. Penjemuran & Moisture / Kadar Air
-    if (q.contains('jemur') || q.contains('dry') || q.contains('kadar air') || q.contains('moisture') || q.contains('pengeringan')) {
-      return '''☀️ Standar Penjemuran & Pengendalian Kadar Air:
-• Target Kadar Air Aman: 10.5% – 11.5% untuk kestabilan penyimpanan jangka panjang (mencegah jamur Aspergillus ochraceus penghasil Ochratoxin A).
-• Fasilitas Penjemuran: Gunakan meja penjemuran jaring (raised African beds), jangan menjemur langsung di atas tanah atau aspal.
-• Ketebalan Lapisan: Tebar biji setebal 3–4 cm pada 3 hari pertama, kemudian ratakan hingga 2–3 cm pada tahap akhir.
-• Perlindungan Cuaca: Tutup atau masukkan biji jika mendung/hujan, dan tutupi terpal di malam hari agar kelembaban embun tidak terserap kembali.''';
+    // C. Varietas & Perbedaan Karakter (Gayo, Toraja, Kintamani, Arabika vs Robusta vs Liberika)
+    if (q.contains('varietas') || q.contains('jenis') || q.contains('arabika') || q.contains('robusta') ||
+        q.contains('liberika') || q.contains('excelsa') || q.contains('gayo') || q.contains('toraja') ||
+        q.contains('kintamani') || q.contains('mandailing') || q.contains('wamena') || q.contains('kafein')) {
+      return '''🌍 Varietas & Karakteristik Kopi Nusantara:
+1. Perbandingan Utama Jenis Kopi:
+   • Arabika: Tumbuh di >1000 mdpl, kadar kafein 1.1%–1.5%, bentuk biji lonjong dengan celah bergelombang, rasa kompleks dengan aroma floral, buah, dan acidity cerah.
+   • Robusta: Tumbuh di dataran rendah 200–800 mdpl, kadar kafein tinggi 2.2%–2.7%, bentuk bulat dengan celah lurus, body sangat tebal, aroma nutty, cokelat pahit, tahan hama.
+   • Liberika & Excelsa: Biji asimetris besar berujung kait, aroma nangka (jackfruit), buah tropis matang, dan sentuhan aroma kayu manis.
+
+2. Cita Rasa Khas Origin Indonesia:
+   • Arabika Gayo (Aceh): Spicy herbal yang khas, body sedang-tebal, clean acidity, dan aftertaste manis cokelat.
+   • Arabika Toraja (Sulawesi): Earthy, dark chocolate, sentuhan kayu manis, dan keasaman seimbang yang elegan.
+   • Arabika Kintamani (Bali): Dominan rasa buah jeruk segar (citrusy orange), bodi ringan-sedang, dan aroma bunga melati.
+   • Arabika Wamena (Papua): Sangat lembut, wangi floral, rasa nutty almond, dan manis karamel bersih tanpa jejak rasa tanah.''';
     }
 
-    // 6. Cacat Biji & Defect
-    if (q.contains('defect') || q.contains('cacat') || q.contains('hama') || q.contains('pbko') || q.contains('jamur')) {
-      return '''🔍 Deteksi & Pencegahan Cacat Biji Kopi (Defect):
-• Cacat Primer (Fatal):
-  - Black Bean: Akibat buah terlalu matang di pohon atau fermentasi berlebih. Menimbulkan rasa pahit abu/gosong.
-  - Sour Bean: Terjadi fermentasi asam/pembusukan lendir yang lambat. Menimbulkan rasa cuka tajam.
-  - Moldy / Jamur: Pengeringan lambat atau disimpan lembab. Menghasilkan rasa apek dan bahaya mikotoksin.
-• Cacat Sekunder:
-  - Borer / Insect Damage: Disebabkan hama Penggerek Buah Kopi (PBKo). Dicegah dengan panen bersih (rampasan) dan perangkap atraktan brocap.
-  - Broken / Biji Pecah: Kesalahan kalibrasi mesin huller atau pulper.''';
+    // D. Pascapanen & Fermentasi (Full Washed, Natural, Honey, Anaerobik, Giling Basah)
+    if (q.contains('ferment') || q.contains('proses') || q.contains('washed') || q.contains('natural') ||
+        q.contains('honey') || q.contains('anaerob') || q.contains('giling basah') || q.contains('maceration')) {
+      return '''⚗️ Metode Pengolahan Pascapanen & Fermentasi Kopi:
+1. Full Washed (Proses Basah):
+   • Buah ceri dikupas kulitnya (depulping), difermentasi dalam bak air selama 24–36 jam untuk menguraikan lendir (mucilage).
+   • Hasil Cup: Karakter bersih (clean cup), acidity jernih berkilau, dan rasa floral yang murni.
+2. Natural / Dry Process:
+   • Buah ceri utuh dijemur langsung di bawah matahari selama 18–25 hari.
+   • Hasil Cup: Rasa manis buah matang sangat pekat (berry, anggur, ferment-winey) dengan body yang tebal.
+3. Honey / Pulped Natural Process:
+   • Kulit luar dikupas, biji dijemur bersama lapisan getah lendir manisnya (mucilage).
+   • Variasi: Yellow Honey (sisa lendir 25%), Red Honey (50%), Black Honey (100% lendir dijemur teduh).
+   • Hasil Cup: Keseimbangan rasa manis karamel dan keasaman buah yang lembut.
+4. Anaerobic Fermentation (Modern Specialty):
+   • Biji dimasukkan ke wadah drum kedap udara dengan katup one-way valve selama 48–96 jam pada suhu dingin <20°C.
+   • Kontrol pH hingga 4.0–4.2. Menghasilkan rasa buah tropis eksotis (nanas, markisa) dan aroma kompleks spektakuler.
+5. Giling Basah (Wet-Hulled):
+   • Khas petani Sumatera: Biji dikupas kulit tanduknya saat kadar air masih tinggi (30–35%). Menghasilkan warna biji hijau kebiruan dan body yang sangat tebal serta aroma rempah/earthy.''';
     }
 
-    // 7. Cupping & Sensory Notes
-    if (q.contains('cupping') || q.contains('rasa') || q.contains('skor') || q.contains('score') || q.contains('flavor') || q.contains('aroma')) {
+    // E. Panen, Budidaya Kebun & Hama (Petik Merah, Pupuk, Naungan, PBKo)
+    if (q.contains('panen') || q.contains('petik') || q.contains('kebun') || q.contains('tanam') ||
+        q.contains('rawat') || q.contains('pupuk') || q.contains('hama') || q.contains('pbko') ||
+        q.contains('karat daun')) {
+      return '''🌱 Panduan Budidaya, Panen & Penanganan Hama Kebun:
+1. Standar Petik Merah Juara:
+   • Hanya panen buah ceri merah marun dengan tingkat kematangan 95%–100% (kadar gula/Brix mencapai 18°–22°).
+   • Sortasi Apung (Floating): Masukkan ceri ke bak air; buah yang mengapung (floater) wajib dipisahkan karena indikasi kopong atau terserang hama.
+2. Pengendalian Hama & Penyakit Utama:
+   • Penggerek Buah Kopi (PBKo / Hypothenemus hampei):
+     - Pasang perangkap senyawa atraktan (Brocap trap) 20–25 unit per hektar.
+     - Lakukan panen bersih (rampasan) memetik seluruh buah tersisa di akhir musim untuk memutus siklus hidup hama.
+   • Karat Daun (Hemileia vastatrix):
+     - Atur naungan pohon (rasio 30%–40%) agar sirkulasi udara baik dan kelembaban tidak memicu spora jamur.
+     - Gunakan varietas tahan karat seperti Sigarar Utang, Andungsari, atau Komasti.
+3. Pemangkasan (Pruning):
+   • Pangkas cabang air (wiwilan) dan cabang yang sudah berbuah lebih dari 3 kali setelah panen raya selesai untuk menumbuhkan tunas produktif baru.''';
+    }
+
+    // F. Penjemuran & Kadar Air (Moisture Content)
+    if (q.contains('jemur') || q.contains('dry') || q.contains('kadar air') || q.contains('moisture') ||
+        q.contains('pengeringan')) {
+      return '''☀️ Standar Penjemuran & Pengendalian Kadar Air (Moisture):
+• Target Kadar Air Resmi: 10.0% – 12.0% (Standar Internasional SCA & SNI Maksimal 12.5%).
+  - Jika kadar air >12.5%: Biji sangat rentan ditumbuhi jamur mikotoksin (Ochratoxin A) yang membuat kopi ditolak di pelabuhan ekspor.
+  - Jika kadar air <9.5%: Biji menjadi getas, mudah pecah saat proses hulling, dan kehilangan komponen minyak volatil rasa.
+• Prosedur Penjemuran Ideal:
+  1. Gunakan meja jemur jaring bertingkat (Raised African Beds) untuk sirkulasi udara 360 derajat.
+  2. Bolak-balik biji kopi setiap 2 jam sekali pada siang hari.
+  3. Tutup terpal atau bawa masuk biji jika cuaca mendung/hujan, dan tutup rapat saat malam hari agar tidak menyerap embun.''';
+    }
+
+    // G. Cacat Biji Kopi (Defect) & Standar Mutu
+    if (q.contains('defect') || q.contains('cacat')) {
+      return '''🔍 Klasifikasi Cacat Biji Kopi (Defect Standard SCA & SNI):
+1. Cacat Primer (Category 1 - Fatal / Nol Toleransi untuk Specialty):
+   • Black Bean (Biji Hitam): Akibat fermentasi berlebih atau buah mati di pohon. Menghasilkan rasa pahit arang/gosong menusuk.
+   • Sour Bean (Biji Asam): Terjadi fermentasi cuka berlebih atau pengeringan terlalu lambat. Menimbulkan rasa cuka tajam yang merusak rasa.
+   • Moldy (Biji Berjamur): Terserang jamur akibat disimpan dalam kondisi basah/lembab. Menghasilkan rasa apek tanah dan bahaya mikotoksin.
+2. Cacat Sekunder (Category 2):
+   • Borer / Insect Damage: Lubang akibat kumbang PBKo. Menyebabkan rasa tidak sedap dan tidak seragam.
+   • Broken / Biji Pecah: Kerusakan mekanis pada mesin pulper/huller. Biji mudah hangus saat disangrai.
+   • Floater / Biji Keriput: Biji kopong akibat kekurangan nutrisi pada pohon.''';
+    }
+
+    // H. Cupping & Sensory Notes (SCA Protocol)
+    if (q.contains('cupping') || q.contains('rasa') || q.contains('skor') || q.contains('score') ||
+        q.contains('flavor') || q.contains('aroma') || q.contains('acidity') || q.contains('body')) {
       final variety = batch?.variety ?? 'Kopi Nusantara';
       final origin = batch?.origin ?? 'Indonesia';
       final score = batch?.cuppingScore?.toStringAsFixed(1) ?? '85.5';
-      return '''☕ Analisis Sensory & Cupping ($variety - $origin):
-• Estimasi Cupping Score: $score SCA (Kategori Specialty Grade).
-• Karakteristik Rasa:
-  - Fragrance / Aroma: Sweet floral, melati, aroma brown sugar dan jeruk segar.
-  - Flavor: Ripe peach, blackcurrant, cokelat susu, dan sentuhan rempah manis.
-  - Acidity: Malic-citric bright acidity yang bersih dan menyegarkan.
-  - Body: Medium-full, bertekstur lembut (silky mouthfeel) dengan aftertaste bersih berkepanjangan.''';
+      return '''☕ Uji Cita Rasa & Cupping Protocol ($variety - $origin):
+• Skor Evaluasi: $score SCA (Kategori Specialty Grade).
+• 10 Atribut Penilaian SCA Cupping:
+  1. Fragrance / Aroma: Bau kering bubuk dan aroma saat dituang air panas 93°C.
+  2. Flavor: Kesan rasa utama saat diseruput di lidah (notes buah, bunga, rempah, kacang).
+  3. Aftertaste: Jejak rasa yang tertinggal di langit-langit mulut setelah kopi ditelan.
+  4. Acidity: Tingkat keasaman cerah yang menyegarkan (seperti apel, lemon, atau jeruk).
+  5. Body: Sensasi ketebalan cairan di mulut (mouthfeel: tea-like, creamy, silky, atau heavy).
+  6. Balance: Harmoni perpaduan antara sweetness, acidity, dan aroma tanpa ada nada dominan yang menusuk.
+  7. Uniformity: Konsistensi rasa di seluruh 5 cangkir sampel yang diuji.
+  8. Clean Cup: Bebas dari cacat rasa tidak sedap (tanah, apek, kimia).
+  9. Sweetness: Manis alami karamel yang terasa jelas pada suhu suam-suam kuku.
+  10. Overall: Penilaian kepuasan holistik dari sang Q-Grader.''';
     }
 
-    // 8. Harga & Pasar
-    if (q.contains('harga') || q.contains('pasar') || q.contains('lelang') || q.contains('market') || q.contains('london')) {
-      return '''📈 Pasar Komoditas & Lelang Kopi:
-• Bursa Acuan Global:
-  - Arabika: Diperdagangkan di ICE Futures US (New York) dalam satuan US Cent/lb.
-  - Robusta: Diperdagangkan di ICE Futures Europe (London) dalam satuan USD/Metric Ton.
-• Jam Buka Bursa London: 09:00 UTC (16:00 WIB). Pantau ticker di menu Pasar Komoditas aplikasi ini.
-• Specialty Premium: Kopi dengan sertifikat blockchain dan skor cupping >85 SCA biasanya mendapatkan premi harga 25% - 40% di atas harga bursa C-Market.''';
+    // I. Ekspor, Regulasi EUDR & Pasar Global
+    if (q.contains('ekspor') || q.contains('export') || q.contains('eudr') || q.contains('syarat') ||
+        q.contains('pasar') || q.contains('lelang') || q.contains('harga') || q.contains('london') ||
+        q.contains('new york')) {
+      return '''📋 Regulasi Ekspor Kopi & Pasar Bursa Global:
+1. Regulasi Anti-Deforestasi Uni Eropa (EUDR):
+   • Titik Poligon GPS: Setiap petak kebun petani pemasok wajib memiliki rekaman koordinat poligon pemetaan satelit.
+   • Bebas Deforestasi: Lahan tidak boleh berasal dari pembabatan hutan primer sejak batas akhir 31 Desember 2020.
+   • Due Diligence Statement (DDS): Wajib didaftarkan secara transparan ke sistem TRACES Uni Eropa.
+2. Dokumen Ekspor Wajib:
+   • Surat Keterangan Asal (SKA / ICO Certificate of Origin) dari Kemendag.
+   • Phytosanitary Certificate dari Badan Karantina Indonesia.
+   • Bill of Lading (B/L), Packing List, Invoice, & Fumigation Certificate.
+3. Acuan Harga Komoditas Dunia:
+   • Arabika: Diperdagangkan di bursa ICE New York (dalam satuan Cent USD / pon).
+   • Robusta: Diperdagangkan di bursa ICE London (dalam satuan USD / Metric Ton).
+   • Jam Lelang London buka pukul 16:00 WIB (09:00 UTC). Pantau live clock di menu Pasar Komoditas aplikasi ini!''';
     }
 
-    // 9. Jawaban Default
-    return '''🤖 Asisten Agronomi & Roasting BeanOrigin (Mode Cerdas):
+    // J. Pertanyaan Kopi Spesifik Lainnya
+    final currentVariety = batch?.variety ?? 'Kopi Nusantara';
+    final currentOrigin = batch?.origin ?? 'Indonesia';
+    return '''☕ Analisis Pakar Kopi BeanOrigin:
 Pertanyaan Anda: "$question"
 
-💡 Panduan Praktis Terkait Kopi:
-1. Roasting: Biji kopi specialty paling optimal disangrai pada level Light to Medium untuk mempertahankan kompleksitas origin.
-2. Pascapanen: Selalu jaga kadar air akhir antara 10.5% - 11.5% sebelum dimasukkan ke dalam karung GrainPro/Hermetik.
-3. Kepatuhan Ekspor: Pastikan titik koordinat GPS kebun tercatat dan skor cupping minimal 80 SCA.
+💡 Panduan Khusus untuk Biji Kopi $currentVariety ($currentOrigin):
+1. Pengolahan: Jaga kebersihan saat proses pascapanen, pastikan air pencucian bersih dan pH fermentasi terkontrol di kisaran 4.0 - 4.5.
+2. Penyimpanan: Simpan green beans di dalam kantong berteknologi kedap udara (seperti GrainPro) dengan suhu ruang 20°C - 24°C untuk menjaga kesegaran rasa hingga 12 bulan.
+3. Kalibrasi Rasa: Lakukan cupping berkala pada setiap lot panen untuk mengidentifikasi potensi profil rasa terbaik sebelum dipasarkan.
 
-Tip: Anda dapat memasukkan Gemini API Key dari Google AI Studio melalui tombol di kanan atas untuk mengaktifkan kecerdasan buatan online!''';
+Ada detail lain seputar budidaya, sangrai, seduh, atau bisnis kopi yang ingin Anda ketahui? ☕''';
   }
 }

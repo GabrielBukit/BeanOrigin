@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:bean_origin/core/theme/app_theme.dart';
 import 'package:bean_origin/shared/models/batch_model.dart';
+import 'package:bean_origin/features/batch/bloc/batch_bloc.dart';
 import 'package:bean_origin/features/llm_advisor/data/llm_service.dart';
 
 class LlmAdvisorScreen extends StatefulWidget {
@@ -21,13 +23,39 @@ class _LlmAdvisorScreenState extends State<LlmAdvisorScreen> {
   bool _isAskingCustom = false;
   final _customPromptController = TextEditingController();
   final _llmService = LlmService();
+  BatchModel? _activeBatch;
 
   @override
   void initState() {
     super.initState();
+    _initBatchAndAdvisory();
+  }
+
+  void _initBatchAndAdvisory() {
     if (widget.batch != null) {
-      _generateAdvisory();
+      _activeBatch = widget.batch;
+    } else {
+      final batchState = context.read<BatchBloc>().state;
+      if (batchState is BatchLoaded && batchState.batches.isNotEmpty) {
+        _activeBatch = batchState.batches.first;
+      } else {
+        _activeBatch = BatchModel(
+          id: 'SAMPLE-GAYO-01',
+          farmerId: 'farmer-gayo-01',
+          farmerName: 'Aman Rayan',
+          variety: 'Arabika Gayo',
+          origin: 'Aceh Tengah',
+          elevationMasl: 1550,
+          process: 'Full Washed',
+          cuppingScore: 86.5,
+          moistureContent: 11.2,
+          weightKg: 250,
+          status: 'cupped',
+          createdAt: DateTime.now().subtract(const Duration(days: 14)),
+        );
+      }
     }
+    _generateAdvisory();
   }
 
   @override
@@ -43,7 +71,7 @@ class _LlmAdvisorScreenState extends State<LlmAdvisorScreen> {
     });
 
     try {
-      final batch = widget.batch;
+      final batch = _activeBatch;
       if (batch != null) {
         final result = await _llmService.generateAdvisory(batch);
         setState(() {
@@ -78,7 +106,7 @@ class _LlmAdvisorScreenState extends State<LlmAdvisorScreen> {
     });
 
     try {
-      final answer = await _llmService.askQuestion(question, batch: widget.batch);
+      final answer = await _llmService.askQuestion(question, batch: _activeBatch);
       setState(() {
         _customAnswer = answer;
         _isAskingCustom = false;
@@ -89,6 +117,161 @@ class _LlmAdvisorScreenState extends State<LlmAdvisorScreen> {
         _isAskingCustom = false;
       });
     }
+  }
+
+  void _showApiKeyDialog() {
+    final currentKey = _llmService.effectiveApiKey == 'YOUR_GEMINI_API_KEY' ? '' : _llmService.effectiveApiKey;
+    final textController = TextEditingController(text: currentKey);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.bgCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.key_rounded, color: AppColors.accent, size: 22),
+            SizedBox(width: 8),
+            Text('Gemini API Key', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Masukkan Google Gemini API Key Anda untuk mengaktifkan AI secara live / online:',
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: textController,
+              obscureText: true,
+              style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+              decoration: const InputDecoration(
+                hintText: 'AIzaSy...',
+                prefixIcon: Icon(Icons.password, size: 18),
+                contentPadding: EdgeInsets.all(12),
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Dapatkan gratis di: aistudio.google.com',
+              style: TextStyle(fontSize: 11, color: AppColors.accent, fontStyle: FontStyle.italic),
+            ),
+          ],
+        ),
+        actions: [
+          if (_llmService.isApiConfigured)
+            TextButton(
+              onPressed: () {
+                _llmService.setCustomApiKey(null);
+                Navigator.of(ctx).pop();
+                setState(() {});
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Beralih ke mode offline cerdas')),
+                );
+              },
+              child: const Text('Mode Offline', style: TextStyle(color: AppColors.textHint)),
+            ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final key = textController.text.trim();
+              if (key.isNotEmpty) {
+                _llmService.setCustomApiKey(key);
+                Navigator.of(ctx).pop();
+                setState(() {});
+                _generateAdvisory();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('API Key berhasil disimpan & Gemini aktif! 🚀')),
+                );
+              }
+            },
+            child: const Text('Simpan & Aktifkan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBatchSelectorDialog() {
+    final batchState = context.read<BatchBloc>().state;
+    List<BatchModel> batches = [];
+    if (batchState is BatchLoaded) {
+      batches = batchState.batches;
+    }
+    if (batches.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tidak ada batch lain yang tersedia di database.')),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.bgCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                'Pilih Batch Kopi untuk Dianalisis AI',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              ),
+            ),
+            const Divider(color: Color(0xFF3D2E22)),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: batches.length,
+                itemBuilder: (context, index) {
+                  final b = batches[index];
+                  final isSelected = b.id == _activeBatch?.id;
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: isSelected ? AppColors.accent : const Color(0xFF3D2E22),
+                      child: Text('☕', style: const TextStyle(fontSize: 16)),
+                    ),
+                    title: Text(
+                      '${b.variety} (${b.origin})',
+                      style: TextStyle(
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected ? AppColors.accent : AppColors.textPrimary,
+                      ),
+                    ),
+                    subtitle: Text(
+                      '${b.origin} · ${b.elevationMasl.toInt()} mdpl · ${b.process}',
+                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    ),
+                    trailing: b.cuppingScore != null
+                        ? Text('${b.cuppingScore!.toStringAsFixed(1)} SCA', style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold))
+                        : null,
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      setState(() {
+                        _activeBatch = b;
+                      });
+                      _generateAdvisory();
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -102,7 +285,13 @@ class _LlmAdvisorScreenState extends State<LlmAdvisorScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.key_rounded, color: AppColors.accent),
+            tooltip: 'Atur API Key',
+            onPressed: _showApiKeyDialog,
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh_rounded, color: AppColors.accent),
+            tooltip: 'Refresh Analisis',
             onPressed: _generateAdvisory,
           ),
         ],
@@ -115,7 +304,7 @@ class _LlmAdvisorScreenState extends State<LlmAdvisorScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Batch Info Header
-                  if (widget.batch != null) _buildBatchHeader(),
+                  if (_activeBatch != null) _buildBatchHeader(),
                   const SizedBox(height: 16),
 
                   // Error
@@ -225,7 +414,8 @@ class _LlmAdvisorScreenState extends State<LlmAdvisorScreen> {
   }
 
   Widget _buildBatchHeader() {
-    final batch = widget.batch!;
+    final batch = _activeBatch;
+    if (batch == null) return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -254,13 +444,21 @@ class _LlmAdvisorScreenState extends State<LlmAdvisorScreen> {
                 Text(
                   batch.variety,
                   style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                  overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   '${batch.origin} · ${batch.elevationMasl.toInt()} mdpl · ${batch.process}',
                   style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
+          ),
+          const SizedBox(width: 6),
+          IconButton(
+            icon: const Icon(Icons.swap_horiz_rounded, color: AppColors.accent, size: 22),
+            tooltip: 'Ganti Batch Kopi',
+            onPressed: _showBatchSelectorDialog,
           ),
           if (batch.cuppingScore != null)
             Container(
@@ -363,32 +561,42 @@ class _LlmAdvisorScreenState extends State<LlmAdvisorScreen> {
 
   Widget _buildModelInfo() {
     final isConfigured = _llmService.isApiConfigured;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.bgSurface,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            isConfigured ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
-            color: isConfigured ? AppColors.success : AppColors.textHint,
-            size: 14,
+    return InkWell(
+      onTap: _showApiKeyDialog,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.bgSurface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isConfigured ? AppColors.success.withValues(alpha: 0.3) : AppColors.accent.withValues(alpha: 0.3),
+            width: 0.8,
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              isConfigured
-                  ? 'Terhubung ke Google Gemini 1.5 Flash API'
-                  : 'Mode Offline — Atur API key di constants.dart untuk koneksi Gemini',
-              style: TextStyle(
-                fontSize: 11,
-                color: isConfigured ? AppColors.success : AppColors.textHint,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isConfigured ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
+              color: isConfigured ? AppColors.success : AppColors.accent,
+              size: 16,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                isConfigured
+                    ? 'Terhubung ke Google Gemini 1.5 Flash API (Ketuk untuk ganti API Key)'
+                    : 'Mode Offline Cerdas — Ketuk untuk memasukkan Gemini API Key',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: isConfigured ? AppColors.success : AppColors.textSecondary,
+                ),
               ),
             ),
-          ),
-        ],
+            const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textHint),
+          ],
+        ),
       ),
     );
   }

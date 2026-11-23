@@ -247,14 +247,16 @@ OUTPUT WAJIB: Berikan HANYA format JSON murni (tanpa tanda kutip markdown/tanpa 
           // Deteksi Buah Ceri Kopi (merah marun matang)
           final isCherry = (r >= 100 && r <= 235) && (g <= 90) && (b <= 90) && (r > g * 1.3);
 
-          // Deteksi Non-Kopi Jelas (Warna Biru Langit/Kaos, Putih Kertas Kosong, Ungu, Neon, Kulit Wajah Terang)
+          // Deteksi Non-Kopi Jelas (Warna Biru Langit/Kaos, Putih Kertas Kosong, Ungu, Neon, dsb)
           final isDefiniteNonCoffee = (b > r + 20 && b > g + 15) || // Dominan Biru / Cyan
               (r > 240 && g > 240 && b > 240) || // Putih polos / Kertas
               (r < 15 && g < 15 && b < 15) || // Hitam legam tanpa tekstur
               (r > 160 && b > 140 && g < 110) || // Ungu / Magenta
               (g > r * 1.5 && g > 140); // Neon / Daun hijau terang
 
-          if (isGreenBean) {
+          if (isDefiniteNonCoffee) {
+            nonCoffeePixels += 2; // Penalti ekstra untuk objek non-kopi yang jelas
+          } else if (isGreenBean) {
             coffeeGreenPixels++;
             // Evaluasi anomali warna biji mentah
             if (r < 50 && g < 50) darkDefectPixels++; // Black bean
@@ -275,7 +277,8 @@ OUTPUT WAJIB: Berikan HANYA format JSON murni (tanpa tanda kutip markdown/tanpa 
       }
 
       final totalCoffeePixels = coffeeGreenPixels + coffeeRoastedPixels + coffeeCherryPixels;
-      final coffeeRatio = totalPixels > 0 ? totalCoffeePixels / totalPixels : 0.0;
+      final evaluatedTotal = totalCoffeePixels + nonCoffeePixels;
+      final coffeeRatio = evaluatedTotal > 0 ? totalCoffeePixels / evaluatedTotal : 0.0;
 
       // THRESHOLD PENENTUAN: Minimal 30% piksel harus berada dalam palet biji kopi
       if (coffeeRatio < 0.30) {

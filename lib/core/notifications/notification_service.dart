@@ -100,8 +100,8 @@ class NotificationService {
       now.year,
       now.month,
       now.day,
-      17, // 17:00 WIB = 10:00 London UTC
-      0,
+      21, // Jam 21 (malam)
+      20, // Menit 20
     );
 
     // If the time has passed today, schedule for tomorrow
@@ -112,7 +112,7 @@ class NotificationService {
     await _plugin.zonedSchedule(
       auctionAlarmId,
       '☕ Sesi Lelang Dibuka!',
-      'ICE Futures Europe buka pukul 10:00 London (17:00 WIB). Pantau harga kopi sekarang!',
+      'ICE Futures Europe sesi lelang dibuka pukul 21:20 WIB. Pantau harga kopi sekarang!',
       scheduledDate,
       NotificationDetails(
         android: AndroidNotificationDetails(

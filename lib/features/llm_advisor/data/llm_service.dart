@@ -376,7 +376,36 @@ Ada yang bisa saya bantu terkait budidaya, seduh, atau bisnis kopi Anda? ☕''';
 
     // 4. JAWABAN MENDALAM SEPUTAR KOPI SESUAI TOPIK PERTANYAAN:
 
-    // A. Teknik Seduh & Brewing Barista (V60, Espresso, French Press, Rasio, Grind Size)
+    // A. Daerah Asal Penghasil Kopi Bagus / Terbaik (Origin & Terroir)
+    if (q.contains('berasal') || q.contains('asal') || q.contains('daerah') ||
+        q.contains('wilayah') || q.contains('penghasil') || q.contains('darimana') ||
+        q.contains('dari mana') || q.contains('terbaik') || q.contains('bagus') ||
+        q.contains('paling enak') || q.contains('rekomendasi')) {
+      return '''🌍 Daerah Asal Penghasil Kopi Bagus & Terbaik:
+
+Kopi yang bagus (Specialty Grade) umumnya berasal dari daerah dataran tinggi (>1.200 mdpl) di kawasan tropis khatulistiwa (*The Bean Belt*) dengan tanah vulkanik kaya hara.
+
+1. Daerah Penghasil Kopi Terbaik di Indonesia:
+• Dataran Tinggi Gayo (Aceh Tengah & Bener Meriah): Ketinggian 1.200–1.700 mdpl. Penghasil Arabika nomor satu di Asia dengan aroma floral melati, keasaman bersih, bodi mantap, dan aftertaste manis herbal.
+• Tana Toraja & Enrekang (Sulawesi Selatan): Ketinggian 1.400–1.900 mdpl di pegunungan Sesean. Terkenal dengan karakter earthy, dark chocolate, kayu manis, dan keasaman seimbang yang elegan.
+• Dataran Tinggi Kintamani (Bali): Ketinggian 1.100–1.500 mdpl di lereng Gunung Batur. Ditanam tumpang sari dengan pohon jeruk keprok, menghasilkan cita rasa buah jeruk segar (citrusy orange) yang manis dan unik.
+• Lembah Baliem, Wamena (Papua): Ketinggian 1.600–2.000 mdpl. Ditanam secara organik murni oleh suku Dani, menghasilkan cita rasa sangat lembut, aroma nutty almond, dan karamel bersih.
+• Mandailing & Lintong (Sumatera Utara): Ketinggian 1.100–1.600 mdpl di sekitar Danau Toba. Terkenal dengan bodi yang sangat tebal (syrupy), dark cocoa, dan aroma rempah.
+• Bajawa, Flores (NTT): Ketinggian 1.200–1.800 mdpl di lereng Gunung Inerie. Cita rasa kacang makadamia, karamel manis, dan aroma floral lembut.
+• Dampit (Malang) & Lampung: Penghasil biji Robusta terbaik Indonesia untuk espresso blend karena body pekat tebal dan aroma cokelat panggang.
+
+2. Daerah Penghasil Kopi Terbaik di Dunia:
+• Ethiopia (Yirgacheffe & Sidamo): Tanah kelahiran kopi dunia, terkenal dengan karakter floral jasmine dan teh bergamot buah persik.
+• Kolombia (Huila & Nariño): Kopi seimbang dengan rasa karamel, jeruk manis, dan cokelat susu.
+• Panama (Boquete): Terkenal dengan varietas Geisha termahal di dunia berkarakter aroma melati dan buah markisa.
+
+💡 Mengapa Kopi dari Daerah Tersebut Bagus?
+1. Elevasi Tinggi (>1.200 mdpl): Suhu sejuk memperlambat pematangan ceri sehingga biji lebih padat dan gula alaminya terakumulasi sempurna.
+2. Tanah Vulkanik: Kaya mineral kalium dan fosfor yang menutrisi tanaman kopi.
+3. Petik Merah 100%: Petani memetik hanya ceri merah matang (kadar gula Brix 18–22%).''';
+    }
+
+    // B. Teknik Seduh & Brewing Barista (V60, Espresso, French Press, Rasio, Grind Size)
     if (q.contains('seduh') || q.contains('brew') || q.contains('v60') || q.contains('espresso') ||
         q.contains('tubruk') || q.contains('aeropress') || q.contains('barista') ||
         q.contains('rasio') || q.contains('giling') || q.contains('grind')) {
@@ -502,9 +531,11 @@ Ada yang bisa saya bantu terkait budidaya, seduh, atau bisnis kopi Anda? ☕''';
    • Floater / Biji Keriput: Biji kopong akibat kekurangan nutrisi pada pohon.''';
     }
 
-    // H. Cupping & Sensory Notes (SCA Protocol)
-    if (q.contains('cupping') || q.contains('rasa') || q.contains('skor') || q.contains('score') ||
-        q.contains('flavor') || q.contains('aroma') || q.contains('acidity') || q.contains('body')) {
+    // I. Cupping & Sensory Notes (SCA Protocol)
+    if (q.contains('cupping') || q.contains('sensory') || q.contains('skor') || q.contains('score') ||
+        q.contains('cita rasa') || q.contains('profil rasa') || q.contains('notes rasa') ||
+        q.contains('flavor') || q.contains('aroma') || q.contains('acidity') || q.contains('aftertaste') ||
+        RegExp(r'\brasa\b').hasMatch(q)) {
       final variety = batch?.variety ?? 'Kopi Nusantara';
       final origin = batch?.origin ?? 'Indonesia';
       final score = batch?.cuppingScore?.toStringAsFixed(1) ?? '85.5';
